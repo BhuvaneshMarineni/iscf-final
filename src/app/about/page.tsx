@@ -155,7 +155,7 @@ export default function About() {
               <div className="bg-white rounded-xl shadow-lg overflow-hidden border-t-4 border-blue-500">
                 <div className="aspect-[4/3] overflow-hidden">
                   <img
-                    src="https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=800"
+                    src="/images/Gopal.JPG"
                     alt="Dr. Gopal Kunji Kanan"
                     className="w-full h-full object-cover"
                   />
@@ -191,7 +191,7 @@ export default function About() {
               <div className="bg-white rounded-xl shadow-lg overflow-hidden border-t-4 border-green-500">
                 <div className="aspect-[4/3] overflow-hidden">
                   <img
-                    src="https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?auto=compress&cs=tinysrgb&w=800"
+                    src="/images/Daisy.png"
                     alt="Daisy Edward"
                     className="w-full h-full object-cover"
                   />

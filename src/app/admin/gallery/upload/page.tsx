@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 
 export default function UploadPhotos() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [originalSizes, setOriginalSizes] = useState<Map<number, number>>(new Map());
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -16,6 +17,7 @@ export default function UploadPhotos() {
     tags: ''
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const router = useRouter();
 
   const categories = [
@@ -29,15 +31,108 @@ export default function UploadPhotos() {
     'Celebrations'
   ];
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = async (file: File, quality: number = 0.7): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Calculate new dimensions (max 1920px)
+          const maxWidth = 1920;
+          const maxHeight = 1920;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > maxWidth || height > maxHeight) {
+            if (width > height) {
+              height = (height * maxWidth) / width;
+              width = maxWidth;
+            } else {
+              width = (width * maxHeight) / height;
+              height = maxHeight;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now()
+                });
+                resolve(compressedFile);
+              } else {
+                reject(new Error('Failed to compress image'));
+              }
+            },
+            'image/jpeg',
+            quality
+          );
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+    });
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      setSelectedFiles(prev => [...prev, ...files]);
+      setIsCompressing(true);
+      
+      try {
+        const compressedFiles = await Promise.all(
+          files.map(file => compressImage(file, 0.7))
+        );
+        
+        // Track original sizes
+        const newSizes = new Map(originalSizes);
+        compressedFiles.forEach((file, index) => {
+          newSizes.set(selectedFiles.length + index, files[index].size);
+        });
+        setOriginalSizes(newSizes);
+        
+        setSelectedFiles(prev => [...prev, ...compressedFiles]);
+      } catch (error) {
+        console.error('Error compressing images:', error);
+        alert('Failed to compress some images. Using original files.');
+        setSelectedFiles(prev => [...prev, ...files]);
+      } finally {
+        setIsCompressing(false);
+      }
     }
   };
 
   const removeFile = (index: number) => {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const getCompressionSavings = (index: number): string => {
+    const originalSize = originalSizes.get(index);
+    const compressedSize = selectedFiles[index]?.size;
+    if (originalSize && compressedSize) {
+      const savings = ((originalSize - compressedSize) / originalSize * 100).toFixed(0);
+      return savings;
+    }
+    return '0';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -134,6 +229,11 @@ export default function UploadPhotos() {
                 <p className="text-sm text-gray-600">
                   Support for JPG, PNG, GIF up to 10MB each
                 </p>
+                {isCompressing && (
+                  <p className="text-sm text-blue-600 mt-2">
+                    Compressing images... (max 1920px, 70% quality)
+                  </p>
+                )}
               </div>
               <input
                 type="file"
@@ -168,6 +268,14 @@ export default function UploadPhotos() {
                         <X className="w-4 h-4" />
                       </button>
                       <p className="text-xs text-gray-600 mt-1 truncate">{file.name}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-xs text-gray-500">{formatFileSize(file.size)}</span>
+                        {originalSizes.has(index) && (
+                          <span className="text-xs text-green-600">
+                            -{getCompressionSavings(index)}%
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

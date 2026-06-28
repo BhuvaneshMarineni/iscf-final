@@ -2,29 +2,112 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Calendar, Heart, Users, Globe, ArrowRight, MapPin, Clock, Home as HomeIcon, Star, Quote, GraduationCap, Award, CheckCircle, DollarSign } from 'lucide-react';
-import { getFeaturedTestimonials, getActivePrograms } from '@/lib/api';
-import type { Testimonial, Program } from '@/lib/api';
+import { 
+  Calendar, Heart, Users, Globe, MapPin, Clock, Home as HomeIcon, 
+  Star, Quote, GraduationCap, Award, Sparkles, ChevronRight, ChevronLeft
+} from 'lucide-react';
+import { getFeaturedTestimonials, getEvents } from '@/lib/api';
+import type { Testimonial, Event } from '@/lib/api';
+import Button from '@/components/ui/Button';
+import Badge from '@/components/ui/Badge';
+import GlassCard from '@/components/ui/GlassCard';
+import ScrollReveal from '@/components/ScrollReveal';
+
+const getCountryFlag = (country: string): string => {
+  const flags: { [key: string]: string } = {
+    'China': '🇨🇳', 'India': '🇮🇳', 'South Korea': '🇰🇷', 'Japan': '🇯🇵',
+    'Brazil': '🇧🇷', 'Nigeria': '🇳🇬', 'Ghana': '🇬🇭', 'Kenya': '🇰🇪',
+    'Mexico': '🇲🇽', 'Venezuela': '🇻🇪', 'Colombia': '🇨🇴', 'Taiwan': '🇹🇼',
+    'Thailand': '🇹🇭', 'Vietnam': '🇻🇳', 'Indonesia': '🇮🇩', 'Philippines': '🇵🇭',
+    'Turkey': '🇹🇷', 'Iran': '🇮🇷', 'Saudi Arabia': '🇸🇦', 'Egypt': '🇪🇬',
+    'Germany': '🇩🇪', 'France': '🇫🇷', 'United Kingdom': '🇬🇧', 'Spain': '🇪🇸',
+    'Italy': '🇮🇹', 'Canada': '🇨🇦', 'Australia': '🇦🇺', 'Russia': '🇷🇺',
+    'Pakistan': '🇵🇰', 'Bangladesh': '🇧🇩', 'Sri Lanka': '🇱🇰', 'Nepal': '🇳🇵',
+  };
+  return flags[country] || '🌍';
+};
+
+const mockUpcomingEvents: Event[] = [
+  {
+    id: 1,
+    title: 'Fall Welcome Banquet 2024',
+    description: 'Join us for our annual welcome celebration with food, music, and fellowship!',
+    date: '2024-09-15',
+    time: '18:00',
+    location: 'ODU Student Center',
+    category: 'Social',
+    status: 'upcoming',
+    recurring: false,
+    schedule: 'September 15, 2024',
+    currentAttendees: 120,
+    registrationRequired: true,
+    featured: true,
+    image: 'https://images.pexels.com/photos/5877413/pexels-photo-5877413.jpeg?auto=compress&cs=tinysrgb&w=800',
+  },
+  {
+    id: 2,
+    title: 'International Food Festival',
+    description: 'Experience cuisines from around the world shared by our international community.',
+    date: '2024-10-05',
+    time: '12:00',
+    location: 'Campus Green',
+    category: 'Cultural',
+    status: 'upcoming',
+    recurring: false,
+    schedule: 'October 5, 2024',
+    currentAttendees: 85,
+    registrationRequired: false,
+    featured: true,
+    image: 'https://images.pexels.com/photos/5779787/pexels-photo-5779787.jpeg?auto=compress&cs=tinysrgb&w=800',
+  },
+  {
+    id: 3,
+    title: 'Bible Study Kickoff',
+    description: 'Start your semester with faith and community at our weekly Bible study.',
+    date: '2024-09-08',
+    time: '19:00',
+    location: 'Student Union Room 201',
+    category: 'Spiritual',
+    status: 'upcoming',
+    recurring: true,
+    schedule: 'Every Thursday, 7:00 PM',
+    currentAttendees: 45,
+    registrationRequired: false,
+    featured: true,
+    image: 'https://images.pexels.com/photos/1181396/pexels-photo-1181396.jpeg?auto=compress&cs=tinysrgb&w=800',
+  },
+];
 
 export default function Home() {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
-  const [programs, setPrograms] = useState<Program[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [scrollY, setScrollY] = useState(0);
+  const [activeTestimonial, setActiveTestimonial] = useState(0);
+  const [activeBannerEvent, setActiveBannerEvent] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrollY(window.scrollY);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
-        const [testimonialsData, programsData] = await Promise.all([
+        const [testimonialsData, eventsData] = await Promise.all([
           getFeaturedTestimonials(),
-          getActivePrograms()
+          getEvents()
         ]);
         setTestimonials(testimonialsData);
-        setPrograms(programsData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
+        setEvents(eventsData.filter((event: Event) => event.status === 'upcoming' || event.featured).slice(0, 3));
+      } catch (err) {
+        console.error('Error fetching data:', err);
         setError('Failed to load data. Please try again later.');
       } finally {
         setLoading(false);
@@ -34,73 +117,225 @@ export default function Home() {
     fetchData();
   }, []);
 
+  const displayedEvents = events.length > 0 ? events : mockUpcomingEvents;
+
+  useEffect(() => {
+    if (displayedEvents.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveBannerEvent(prev => (prev + 1) % displayedEvents.length);
+    }, 7000);
+    return () => clearInterval(interval);
+  }, [displayedEvents.length]);
+
   return (
-    <div className="min-h-screen">
-      {/* Hero Section */}
-      <section className="relative bg-gray-900 text-white min-h-[700px] flex items-center px-6 md:px-12 lg:px-16 overflow-hidden">
-        {/* Background Image */}
-        <div className="absolute inset-0 bg-[url('https://images.pexels.com/photos/1181406/pexels-photo-1181406.jpeg?auto=compress&cs=tinysrgb&w=1920')] bg-cover bg-center opacity-20"></div>
-        {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-black/60"></div>
-        
-        {/* Content */}
-        <div className="container mx-auto px-8 md:px-12 lg:px-20 py-24">
-          <div className="relative max-w-4xl mx-auto text-center">
-            <div className="mb-8">
-              <div className="relative inline-block mb-6">
-                <HomeIcon className="w-20 h-20 mx-auto text-white drop-shadow-lg" />
-                <div className="absolute -top-2 -right-2 w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
-                  <Heart className="w-4 h-4 text-white" />
+    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
+      
+      {/* ── Upcoming Event Banner ── */}
+      <section className="py-8 bg-[#F8FAFC]">
+        <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div
+            className="bg-white border border-[#E5E7EB] overflow-hidden transition-all duration-300 hover:-translate-y-1"
+            style={{
+              borderRadius: 28,
+              minHeight: 160,
+              boxShadow: '0 16px 50px rgba(15,23,42,0.08)',
+            }}
+          >
+            {loading ? (
+              <div className="flex items-center gap-6 p-7 animate-pulse" style={{ minHeight: 160 }}>
+                <div className="w-[120px] h-[120px] rounded-[20px] bg-[#E2E8F0] shrink-0" />
+                <div className="flex-1 space-y-3">
+                  <div className="h-4 bg-[#E2E8F0] rounded w-28" />
+                  <div className="h-6 bg-[#E2E8F0] rounded w-64" />
+                  <div className="h-4 bg-[#E2E8F0] rounded w-48" />
                 </div>
               </div>
-              <h1 className="text-5xl md:text-7xl font-bold mb-8 leading-tight text-white">
-                Welcome Home, <br />
-                <span className="text-gray-300 drop-shadow-lg">International Students</span>
+            ) : displayedEvents.length > 0 ? (
+              <div className="relative">
+                {displayedEvents.map((event, index) => (
+                  <div
+                    key={event.id}
+                    className={`transition-opacity duration-700 ease-in-out ${
+                      index === activeBannerEvent ? 'opacity-100 relative' : 'opacity-0 absolute inset-0 pointer-events-none'
+                    }`}
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-center gap-6 p-6 lg:p-7">
+
+                      {/* Col 1 — Thumbnail */}
+                      <div className="shrink-0 hidden md:block">
+                        <img
+                          src={event.image}
+                          alt={event.title}
+                          className="object-cover hover:scale-105 transition-transform duration-300"
+                          style={{ width: 120, height: 120, borderRadius: 20, boxShadow: '0 4px 16px rgba(0,0,0,0.10)' }}
+                        />
+                      </div>
+
+                      {/* Col 2 — Badge + Title + Meta */}
+                      <div className="flex-1 min-w-0">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide text-white mb-3"
+                          style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', boxShadow: '0 2px 8px rgba(37,99,235,0.25)' }}>
+                          <Calendar className="w-3.5 h-3.5" />
+                          Upcoming Event
+                        </div>
+                        <h3 className="text-[22px] lg:text-[28px] font-extrabold text-[#0F172A] leading-tight mb-3">
+                          {event.title}
+                        </h3>
+                        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-[#64748B]">
+                          <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-[#2563EB]" />{new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                          <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-[#2563EB]" />{event.time}</span>
+                          <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-[#2563EB]" />{event.location}</span>
+                        </div>
+                      </div>
+
+                      {/* Col 3 — Description */}
+                      <div className="hidden xl:block shrink-0" style={{ maxWidth: 360 }}>
+                        <p className="text-[17px] text-[#64748B] leading-[1.6] line-clamp-3">
+                          {event.description}
+                        </p>
+                      </div>
+
+                      {/* Col 4 — Buttons */}
+                      <div className="flex flex-col gap-3 shrink-0 w-full lg:w-auto">
+                        <Link
+                          href="/events"
+                          className="inline-flex items-center justify-center gap-2 text-white font-semibold text-sm w-full lg:w-auto px-7 transition-all duration-200 hover:-translate-y-0.5"
+                          style={{
+                            height: 56,
+                            borderRadius: 16,
+                            background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+                            boxShadow: '0 4px 16px rgba(37,99,235,0.30)',
+                          }}
+                        >
+                          View Event Details →
+                        </Link>
+                        <button
+                          className="inline-flex items-center justify-center gap-2 text-[#1D4ED8] font-semibold text-sm w-full lg:w-auto px-7 bg-white border-2 border-[#2563EB] hover:bg-[#EEF2FF] transition-all duration-200"
+                          style={{ height: 52, borderRadius: 16 }}
+                        >
+                          <Calendar className="w-4 h-4" />
+                          Add to Calendar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Carousel Dots */}
+                {displayedEvents.length > 1 && (
+                  <div className="flex justify-center items-center gap-2 pb-5">
+                    {displayedEvents.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setActiveBannerEvent(index)}
+                        className="h-2.5 rounded-full transition-all duration-300"
+                        style={{
+                          width: index === activeBannerEvent ? 20 : 10,
+                          background: index === activeBannerEvent ? '#2563EB' : '#CBD5E1',
+                        }}
+                        aria-label={`Go to event ${index + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center text-sm text-[#64748B]" style={{ minHeight: 160 }}>
+                No upcoming events at this time.
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Hero Section ── */}
+      <section className="relative bg-[#F8FAFC] pt-10 pb-20 overflow-hidden">
+        {/* Subtle dot grid */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          backgroundImage: 'radial-gradient(#2563EB 1px, transparent 1px)',
+          backgroundSize: '36px 36px',
+          opacity: 0.03,
+        }} />
+        {/* Soft blue glow */}
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.07) 0%, transparent 70%)' }} />
+
+        <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 relative">
+          <div className="flex flex-col lg:flex-row gap-12 lg:gap-16 items-center">
+
+            {/* ── Left — 45% ── */}
+            <div className="flex-[0_0_auto] w-full lg:w-[45%] animate-fade-left">
+              {/* Badge */}
+              <div className="inline-flex items-center gap-2 text-[#2563EB] font-semibold text-sm mb-7">
+                <HomeIcon className="w-4 h-4" />
+                Welcome Home
+              </div>
+
+              <h1 className="font-extrabold leading-[1.08] tracking-tight mb-6"
+                style={{ fontSize: 'clamp(40px, 5vw, 72px)' }}>
+                <span className="text-[#0F172A]">International Students,</span>
+                <br />
+                <span style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                  You Belong Here.
+                </span>
               </h1>
-            </div>
-            
-            <p className="text-xl md:text-2xl mb-10 text-gray-100 leading-relaxed max-w-3xl mx-auto font-light">
-              Since 1995, we've been creating a warm community and home away from home 
-              for international students at Old Dominion University through friendship, 
-              <span className="text-gray-200 font-medium">faith, and genuine hospitality.</span>
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16">
-              <Link
-                href="/events"
-                className="bg-white text-gray-900 px-10 py-4 rounded-xl hover:bg-gray-100 transition-all duration-300 font-bold text-lg flex items-center justify-center shadow-2xl transform hover:scale-105"
-              >
-                <Calendar className="mr-3 w-6 h-6" />
-                Join Our Events <ArrowRight className="ml-2 w-5 h-5" />
-              </Link>
-              <Link
-                href="/about"
-                className="border-2 border-white text-white px-10 py-4 rounded-xl hover:bg-white hover:text-gray-900 transition-all duration-300 font-semibold text-lg shadow-xl"
-              >
-                <Users className="mr-3 w-6 h-6 inline" />
-                Our Story
-              </Link>
-            </div>
-            
-            <div className="bg-white/10 rounded-2xl p-8 max-w-2xl mx-auto border border-white/20 shadow-2xl">
-              <div className="flex items-center justify-center mb-4">
-                <div className="bg-white p-2 rounded-full mr-3">
-                  <Calendar className="w-6 h-6 text-gray-900" />
-                </div>
-                <p className="text-xl font-bold text-white">Next Bible Study</p>
-              </div>
-              <p className="text-white text-lg mb-2">
-                <strong>Weekly Bible Study</strong> - Every Thursday, 7:00 PM - 8:00 PM
+
+              <p className="text-[#4B5563] text-lg leading-[1.7] mb-10 max-w-[480px]">
+                Since 1995, we've been creating a warm community and home away from home
+                for international students at Old Dominion University through friendship,
+                faith, and genuine hospitality.
               </p>
-              <p className="text-gray-200 text-sm">All students welcome, regardless of background or beliefs!</p>
-              <div className="mt-4 flex items-center justify-center space-x-4 text-sm text-gray-300">
-                <div className="flex items-center">
-                  <MapPin className="w-4 h-4 mr-1" />
-                  <span>ODU Campus</span>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link
+                  href="/events"
+                  className="inline-flex items-center justify-center gap-2 text-white font-bold text-base px-8 py-4 rounded-2xl transition-all duration-200 hover:-translate-y-0.5"
+                  style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', boxShadow: '0 4px 20px rgba(37,99,235,0.30)' }}
+                >
+                  Join Our Events →
+                </Link>
+                <Link
+                  href="/about"
+                  className="inline-flex items-center justify-center gap-2 bg-white border-2 border-[#E5E7EB] text-[#374151] font-bold text-base px-8 py-4 rounded-2xl hover:border-[#2563EB] hover:text-[#2563EB] transition-all duration-200"
+                >
+                  Our Story
+                </Link>
+              </div>
+            </div>
+
+            {/* ── Right — 55% ── */}
+            <div className="flex-1 w-full relative animate-fade-right">
+              <div className="relative">
+                {/* Main image */}
+                <div className="overflow-hidden" style={{ borderRadius: 36, boxShadow: '0 20px 60px rgba(15,23,42,0.12)' }}>
+                  <img
+                    src="https://images.pexels.com/photos/1181406/pexels-photo-1181406.jpeg?auto=compress&cs=tinysrgb&w=1200"
+                    alt="Diverse international students at ISCF"
+                    className="w-full object-cover"
+                    style={{ height: 'clamp(340px, 40vw, 520px)', transform: `translateY(${scrollY * 0.04}px)` }}
+                  />
                 </div>
-                <div className="flex items-center">
-                  <Users className="w-4 h-4 mr-1" />
-                  <span>Open to All</span>
+
+                {/* Vertical floating stat cards — overlapping right side */}
+                <div className="absolute top-6 right-[-8px] flex flex-col gap-3">
+                  {[
+                    { Icon: Globe, title: 'Students from 50+ Countries', sub: 'Diverse global community', bg: '#DBEAFE', color: '#2563EB' },
+                    { Icon: Heart, title: 'Faith & Friendship',           sub: 'Building lasting relationships', bg: '#FEE2E2', color: '#EF4444' },
+                    { Icon: HomeIcon, title: 'Home Away From Home',       sub: 'Warm hospitality & support',    bg: '#DCFCE7', color: '#16A34A' },
+                  ].map(({ Icon, title, sub, bg, color }, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 bg-white border border-[#F1F5F9] pr-4 pl-3 py-3 hover:-translate-y-0.5 transition-transform duration-300"
+                      style={{ borderRadius: 24, minWidth: 220, boxShadow: '0 4px 20px rgba(0,0,0,0.09)' }}
+                    >
+                      <div className="p-2.5 rounded-xl shrink-0" style={{ background: bg }}>
+                        <Icon style={{ width: 20, height: 20, color }} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-[#0F172A] text-sm leading-tight">{title}</p>
+                        <p className="text-xs text-[#64748B] mt-0.5">{sub}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -108,385 +343,257 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Welcome Message */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-6 md:px-12 lg:px-16">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="relative inline-block mb-8">
-              <Heart className="w-16 h-16 mx-auto text-red-500 drop-shadow-lg" />
-            </div>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-10 leading-tight">
-              We Are So Glad You Are Here!
-            </h2>
-            <div className="text-xl text-gray-700 leading-relaxed space-y-6">
-              <p>
+      {/* About Section */}
+      <section className="py-30 bg-white">
+        <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center mb-20 lg:mb-28">
+            {/* Left - Text */}
+            <ScrollReveal direction="left">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-1 w-12 bg-primary-600 rounded-full"></div>
+                <span className="text-primary-600 font-semibold text-sm tracking-wide uppercase">About ISCF</span>
+              </div>
+              
+              <h2 className="text-section-mobile lg:text-section font-bold text-[#0F172A] mb-6">
+                We Are So Glad You Are Here!
+              </h2>
+              
+              <div className="h-1.5 w-24 bg-gradient-primary rounded-full mb-8"></div>
+              
+              <p className="text-body-lg text-[#64748B] mb-6 leading-relaxed">
                 Since 1995, our heart has been to serve and walk alongside international students 
                 as you study and experience life in the United States. Through the friendship and 
                 hospitality of American families and individuals, you will find a warm community, 
                 a home away from home, and people eager to share life.
               </p>
-              <p>
+              
+              <p className="text-body-lg text-[#64748B] mb-8 leading-relaxed">
                 Here, you can ask questions, explore faith, learn about Jesus, and build lasting 
                 relationships across cultures. We believe every student is uniquely gifted and 
                 deeply valued, and we count it a joy to journey with you.
               </p>
-              <div className="bg-gray-50 border-2 border-gray-200 p-8 rounded-2xl shadow-lg">
-                <div className="flex items-center justify-center mb-4">
-                  <Globe className="w-8 h-8 text-blue-600 mr-3" />
-                  <Heart className="w-8 h-8 text-red-500" />
+              
+              <Button variant="outline" size="md" showArrow href="/about" className="group">
+                Learn Our Story
+              </Button>
+            </ScrollReveal>
+            
+            {/* Right - Illustration/Photo */}
+            <ScrollReveal direction="right" delay={0.2}>
+              <div className="relative">
+                <div className="rounded-[32px] overflow-hidden shadow-large">
+                  <img
+                    src="https://images.pexels.com/photos/3184360/pexels-photo-3184360.jpeg?auto=compress&cs=tinysrgb&w=1200"
+                    alt="Welcoming international student community"
+                    className="w-full aspect-[4/3] object-cover"
+                  />
                 </div>
-                <p className="text-2xl font-bold text-gray-700 mb-2">
-                  No matter where you come from or what you believe,
-                </p>
-                <p className="text-2xl font-bold text-gray-800">
-                  you are welcome here!
-                </p>
+                <div className="absolute -bottom-6 -left-6 bg-white rounded-2xl p-5 shadow-soft border border-[#E5E7EB]">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-primary-100 p-3 rounded-full">
+                      <Calendar className="w-6 h-6 text-primary-600" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-[#0F172A]">29+ Years</p>
+                      <p className="text-sm text-[#64748B]">Serving students</p>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+            </ScrollReveal>
+          </div>
+          
+          {/* Feature Cards Below */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { icon: Globe, title: 'Diverse Community', desc: 'Students from every corner of the world', color: 'bg-primary-50 text-primary-600' },
+              { icon: Heart, title: 'Genuine Hospitality', desc: 'Warm welcomes from American families', color: 'bg-red-50 text-red-500' },
+              { icon: Sparkles, title: 'Explore Faith', desc: 'Ask questions and discover Jesus', color: 'bg-purple-50 text-purple-600' },
+              { icon: Users, title: 'Lifelong Friendships', desc: 'Build relationships that last forever', color: 'bg-green-50 text-green-600' },
+            ].map((feature, index) => (
+              <ScrollReveal key={feature.title} delay={index * 0.1}>
+                <GlassCard hover className="h-full">
+                  <div className="flex flex-col items-center text-center">
+                    <div className={`${feature.color} p-4 rounded-2xl mb-5`}>
+                      <feature.icon className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-card-title font-bold text-[#0F172A] mb-3">{feature.title}</h3>
+                    <p className="text-[#64748B] leading-relaxed">{feature.desc}</p>
+                  </div>
+                </GlassCard>
+              </ScrollReveal>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Student Stories Section */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-6 md:px-12 lg:px-16">
-          <div className="text-center mb-16">
-            <div className="flex items-center justify-center mb-6">
-              <Quote className="w-12 h-12 text-blue-600 mr-3" />
-              <Star className="w-8 h-8 text-yellow-500" />
+      {/* Student Stories / Testimonials */}
+      <section className="pt-30 pb-36 bg-white">
+        <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8">
+          <ScrollReveal>
+            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between mb-12 lg:mb-16">
+              <div>
+                <span className="text-primary-600 font-semibold text-sm tracking-wide uppercase mb-4 block">Student Stories</span>
+                <h2 className="text-section-mobile lg:text-section font-bold text-[#0F172A]">
+                  What Students Say
+                </h2>
+              </div>
+              <Link href="/about" className="hidden lg:inline-flex items-center text-primary-600 font-semibold hover:text-primary-700 transition-colors group mt-4 lg:mt-0">
+                View all stories
+                <ChevronRight className="w-5 h-5 ml-1 transition-transform group-hover:translate-x-1" />
+              </Link>
             </div>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-              Student Stories
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Hear from international students whose lives have been transformed through 
-              friendship, faith, and community at ISCF
-            </p>
-          </div>
+          </ScrollReveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
-            {loading ? (
-              // Loading skeleton
-              [...Array(3)].map((_, index) => (
-                <div key={index} className="bg-gray-100 rounded-2xl p-8 shadow-xl border border-gray-200 animate-pulse">
-                  <div className="flex items-center mb-6">
-                    <div className="w-16 h-16 rounded-full bg-gray-300"></div>
-                    <div className="ml-4 flex-1">
-                      <div className="h-5 bg-gray-300 rounded mb-2"></div>
-                      <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+          <div className="relative">
+            {/* Left Arrow */}
+            <button
+              onClick={() => setActiveTestimonial(prev => Math.max(0, prev - 1))}
+              disabled={activeTestimonial === 0}
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-12 h-12 rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-[#E5E7EB] flex items-center justify-center text-[#64748B] hover:text-[#0F172A] hover:shadow-[0_10px_40px_rgba(0,0,0,0.12)] transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed hidden lg:flex"
+              aria-label="Previous testimonial"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+
+            {/* Right Arrow */}
+            <button
+              onClick={() => setActiveTestimonial(prev => Math.min(Math.max(0, testimonials.length - 3), prev + 1))}
+              disabled={activeTestimonial >= Math.max(0, testimonials.length - 3)}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-12 h-12 rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-[#E5E7EB] flex items-center justify-center text-[#64748B] hover:text-[#0F172A] hover:shadow-[0_10px_40px_rgba(0,0,0,0.12)] transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed hidden lg:flex"
+              aria-label="Next testimonial"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+
+            {/* Carousel Track */}
+            <div className="overflow-hidden px-1 lg:px-0">
+              <div 
+                className="flex transition-transform duration-500 ease-out gap-6"
+                style={{ transform: `translateX(-${activeTestimonial * 100}%)` }}
+              >
+                {loading ? (
+                  [...Array(3)].map((_, index) => (
+                    <div key={index} className="flex-[0_0_100%] md:flex-[0_0_calc(50%-12px)] lg:flex-[0_0_calc(33.333%-16px)] shrink-0 bg-secondary-50 rounded-[24px] p-8 animate-pulse h-80">
+                      <div className="flex items-center mb-6">
+                        <div className="w-16 h-16 rounded-full bg-secondary-200"></div>
+                        <div className="ml-4 flex-1">
+                          <div className="h-5 bg-secondary-200 rounded mb-2"></div>
+                          <div className="h-4 bg-secondary-200 rounded w-3/4"></div>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="h-4 bg-secondary-200 rounded"></div>
+                        <div className="h-4 bg-secondary-200 rounded"></div>
+                        <div className="h-4 bg-secondary-200 rounded w-3/4"></div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="h-4 bg-gray-300 rounded mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-4 bg-gray-300 rounded"></div>
-                    <div className="h-4 bg-gray-300 rounded"></div>
-                    <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              testimonials.map((testimonial, index) => {
-                const colors = ['blue', 'green', 'purple'];
-                const color = colors[index % colors.length];
-                
-                return (
-                  <div key={testimonial.id} className={`bg-${color}-50 rounded-2xl p-8 shadow-xl border border-${color}-200 transform hover:scale-105 transition-all duration-300`}>
-                    <div className="flex items-center mb-6">
-                      <img
-                        src={testimonial.image}
-                        alt={testimonial.name}
-                        className="w-16 h-16 rounded-full object-cover border-4 border-white shadow-lg"
-                      />
-                      <div className="ml-4">
-                        <h3 className="text-xl font-bold text-gray-900">{testimonial.name}</h3>
-                        <p className="text-gray-600 font-medium">{testimonial.country} • {testimonial.program}</p>
-                        <div className="flex text-gray-400 mt-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className="w-4 h-4 fill-current text-yellow-400" />
-                          ))}
+                  ))
+                ) : (
+                  testimonials.map((testimonial) => (
+                    <div key={testimonial.id} className="flex-[0_0_100%] md:flex-[0_0_calc(50%-12px)] lg:flex-[0_0_calc(33.333%-16px)] shrink-0">
+                      <div className="group relative bg-white rounded-[24px] p-8 shadow-soft hover:shadow-large transition-all duration-500 hover:-translate-y-2 border border-[#E5E7EB] h-full overflow-hidden">
+                        {/* Top colored border */}
+                        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-primary" />
+                        
+                        <div className="flex items-start mb-6">
+                          <div className="relative">
+                            <img
+                              src={testimonial.image}
+                              alt={testimonial.name}
+                              className="w-16 h-16 rounded-full object-cover border-4 border-white shadow-soft"
+                            />
+                            <span className="absolute -bottom-1 -right-1 text-2xl bg-white rounded-full w-7 h-7 flex items-center justify-center shadow-soft">
+                              {getCountryFlag(testimonial.country)}
+                            </span>
+                          </div>
+                          <div className="ml-4 flex-1">
+                            <h3 className="text-lg font-bold text-[#0F172A]">{testimonial.name}</h3>
+                            <p className="text-sm text-[#64748B]">{testimonial.program}</p>
+                            <p className="text-sm text-primary-600 font-medium">Old Dominion University</p>
+                            <div className="flex mt-1.5">
+                              {[...Array(5)].map((_, i) => (
+                                <Star key={i} className="w-4 h-4 fill-current text-yellow-400" />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <Quote className="w-10 h-10 text-primary-200 mb-4" />
+                        
+                        <p className="text-[#475569] leading-relaxed mb-6 italic">
+                          "{testimonial.testimonial}"
+                        </p>
+                        
+                        <div className="pt-5 border-t border-[#E5E7EB]">
+                          <div className="flex items-center gap-2 mb-1">
+                            {testimonial.status === 'Graduate' || testimonial.status === 'Alumni' ? (
+                              <GraduationCap className="w-4 h-4 text-primary-600" />
+                            ) : (
+                              <Award className="w-4 h-4 text-primary-600" />
+                            )}
+                            <span className="text-sm font-semibold text-[#0F172A]">{testimonial.currentPosition}</span>
+                          </div>
+                          <p className="text-xs text-[#64748B]">
+                            {testimonial.status === 'Current Student' ? 'Currently at ODU' : 'ISCF Alumni'}
+                          </p>
                         </div>
                       </div>
                     </div>
-                    <Quote className={`w-8 h-8 text-${color}-400 mb-4`} />
-                    <p className="text-gray-700 leading-relaxed mb-6 italic">
-                      "{testimonial.testimonial}"
-                    </p>
-                    <div className="flex items-center text-sm text-gray-600">
-                      {testimonial.status === 'Graduate' || testimonial.status === 'Alumni' ? (
-                        <GraduationCap className="w-4 h-4 mr-2" />
-                      ) : (
-                        <Award className="w-4 h-4 mr-2" />
-                      )}
-                      <span>{testimonial.status} • {testimonial.currentPosition}</span>
-                    </div>
-                  </div>
-                );
-              })
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Pagination Dots */}
+          <div className="flex justify-center gap-2 mt-10">
+            {loading ? (
+              [...Array(3)].map((_, index) => (
+                <div key={index} className="w-2 h-2 rounded-full bg-secondary-200" />
+              ))
+            ) : (
+              testimonials.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setActiveTestimonial(index)}
+                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                    index === activeTestimonial ? 'bg-primary-600 w-6' : 'bg-secondary-200 hover:bg-secondary-300'
+                  }`}
+                  aria-label={`Go to testimonial ${index + 1}`}
+                />
+              ))
             )}
           </div>
 
-          {/* Call to Action */}
-          <div className="text-center mt-16">
-            <div className="bg-blue-50 rounded-2xl p-8 border-2 border-blue-200 max-w-2xl mx-auto">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Want to Share Your Story?</h3>
-              <p className="text-gray-700 mb-6">
-                We'd love to hear how ISCF has impacted your life and share your journey with others.
-              </p>
-              <Link
-                href="/contact"
-                className="bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 transition-all duration-300 font-bold inline-flex items-center shadow-lg"
-              >
-                <Heart className="mr-2 w-5 h-5" />
-                Share Your Story
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Key Features */}
-      <section className="py-20 bg-gray-50">
-        <div className="container mx-auto px-6 md:px-12 lg:px-16">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-              How We Serve You
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Connecting international students with American families in friendship, faith, and community
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
-            <div className="text-center p-8 rounded-2xl bg-white border-2 border-blue-200 shadow-xl transform hover:scale-105 transition-all duration-300">
-              <div className="bg-blue-600 p-4 rounded-full w-20 h-20 mx-auto mb-6 shadow-lg">
-                <Users className="w-12 h-12 text-white" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Community</h3>
-              <p className="text-gray-700 leading-relaxed">
-                Connect with American families and build lasting friendships across cultures
-              </p>
-            </div>
-
-            <div className="text-center p-8 rounded-2xl bg-white border-2 border-red-200 shadow-xl transform hover:scale-105 transition-all duration-300">
-              <div className="bg-red-600 p-4 rounded-full w-20 h-20 mx-auto mb-6 shadow-lg">
-                <Heart className="w-12 h-12 text-white" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Faith</h3>
-              <p className="text-gray-700 leading-relaxed">
-                Explore life's big questions and experience the love of Jesus in a welcoming environment
-              </p>
-            </div>
-
-            <div className="text-center p-8 rounded-2xl bg-white border-2 border-green-200 shadow-xl transform hover:scale-105 transition-all duration-300">
-              <div className="bg-green-600 p-4 rounded-full w-20 h-20 mx-auto mb-6 shadow-lg">
-                <Globe className="w-12 h-12 text-white" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Cultural Bridge</h3>
-              <p className="text-gray-700 leading-relaxed">
-                Navigate American culture with support from those who understand your journey
-              </p>
-            </div>
-
-            <div className="text-center p-8 rounded-2xl bg-white border-2 border-yellow-200 shadow-xl transform hover:scale-105 transition-all duration-300">
-              <div className="bg-yellow-600 p-4 rounded-full w-20 h-20 mx-auto mb-6 shadow-lg">
-                <Calendar className="w-12 h-12 text-white" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Events</h3>
-              <p className="text-gray-700 leading-relaxed">
-                Join weekly Bible studies, welcome banquets, and cultural celebrations
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Impact Stats */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-6 md:px-12 lg:px-16">
-          <div className="text-center mb-16">
-            <div className="flex items-center justify-center mb-6">
-              <Award className="w-16 h-16 text-yellow-600 mr-4" />
-              <Star className="w-12 h-12 text-yellow-600" />
-            </div>
-            <h2 className="text-4xl md:text-6xl font-bold mb-6 text-gray-900">Our Impact Since 1995</h2>
-            <p className="text-2xl text-gray-600 max-w-3xl mx-auto">Nearly three decades of serving the international student community</p>
+          <div className="text-center mt-8 lg:hidden">
+            <Link href="/about" className="inline-flex items-center text-primary-600 font-semibold hover:text-primary-700 transition-colors group">
+              View all stories
+              <ChevronRight className="w-5 h-5 ml-1 transition-transform group-hover:translate-x-1" />
+            </Link>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 max-w-5xl mx-auto">
-            <div className="text-center bg-gray-50 rounded-2xl p-8 border border-gray-200 shadow-xl">
-              <div className="text-6xl md:text-7xl font-bold text-gray-900 mb-4">20,000+</div>
-              <div className="text-2xl text-gray-900 font-semibold mb-2">Students Served</div>
-              <div className="text-gray-600">From over 100 countries</div>
-            </div>
-            <div className="text-center bg-gray-50 rounded-2xl p-8 border border-gray-200 shadow-xl">
-              <div className="text-6xl md:text-7xl font-bold text-gray-900 mb-4">29</div>
-              <div className="text-2xl text-gray-900 font-semibold mb-2">Years of Ministry</div>
-              <div className="text-gray-600">Since 1995</div>
-            </div>
-            <div className="text-center bg-gray-50 rounded-2xl p-8 border border-gray-200 shadow-xl">
-              <div className="text-6xl md:text-7xl font-bold text-gray-900 mb-4">1,000+</div>
-              <div className="text-2xl text-gray-900 font-semibold mb-2">Welcome Banquet Attendees</div>
-              <div className="text-gray-600">In a single event</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Quick Actions */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-6 md:px-12 lg:px-16">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">Get Started Today</h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">Choose how you'd like to connect with our community</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 max-w-6xl mx-auto">
-            <Link
-              href="/events"
-              className="block p-10 bg-blue-50 rounded-2xl hover:bg-blue-100 transition-all duration-300 border-2 border-blue-200 group shadow-xl transform hover:scale-105"
-            >
-              <div className="bg-blue-600 p-4 rounded-full w-20 h-20 mb-6 shadow-lg group-hover:shadow-xl transition-shadow">
-                <Calendar className="w-12 h-12 text-white" />
+          {/* Share Your Story CTA */}
+          <ScrollReveal className="mt-16">
+            <div className="bg-gradient-primary rounded-[32px] p-10 lg:p-14 text-center relative overflow-hidden shadow-[0_20px_60px_rgba(37,99,235,0.25)]">
+              <div className="absolute top-6 left-10 text-white/20 animate-float">
+                <Heart className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Join Our Events</h3>
-              <p className="text-gray-700 mb-6 leading-relaxed">
-                Weekly Bible studies, welcome banquets, and cultural celebrations
+              <div className="absolute bottom-6 right-10 text-white/20 animate-float" style={{ animationDelay: '1s' }}>
+                <Heart className="w-6 h-6" />
+              </div>
+              
+              <h3 className="text-2xl lg:text-3xl font-bold text-white mb-3 relative z-10">
+                Want to Share Your Journey?
+              </h3>
+              <p className="text-white/90 text-lg mb-8 max-w-2xl mx-auto relative z-10">
+                We'd love to hear how ISCF has impacted your life.
               </p>
-              <div className="text-gray-600 font-bold flex items-center text-lg">
-                Learn More <ArrowRight className="ml-2 w-4 h-4" />
-              </div>
-            </Link>
-
-            <Link
-              href="/get-involved"
-              className="block p-10 bg-green-50 rounded-2xl hover:bg-green-100 transition-all duration-300 border-2 border-green-200 group shadow-xl transform hover:scale-105"
-            >
-              <div className="bg-green-600 p-4 rounded-full w-20 h-20 mb-6 shadow-lg group-hover:shadow-xl transition-shadow">
-                <Users className="w-12 h-12 text-white" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Get Involved</h3>
-              <p className="text-gray-700 mb-6 leading-relaxed">
-                Volunteer opportunities for students, families, and church partners
-              </p>
-              <div className="text-gray-600 font-bold flex items-center text-lg">
-                Start Serving <ArrowRight className="ml-2 w-4 h-4" />
-              </div>
-            </Link>
-
-            <Link
-              href="/contact"
-              className="block p-10 bg-purple-50 rounded-2xl hover:bg-purple-100 transition-all duration-300 border-2 border-purple-200 group shadow-xl transform hover:scale-105"
-            >
-              <div className="bg-purple-600 p-4 rounded-full w-20 h-20 mb-6 shadow-lg group-hover:shadow-xl transition-shadow">
-                <MapPin className="w-12 h-12 text-white" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Connect With Us</h3>
-              <p className="text-gray-700 mb-6 leading-relaxed">
-                Get in touch, ask questions, or visit us at Old Dominion University
-              </p>
-              <div className="text-gray-600 font-bold flex items-center text-lg">
-                Contact Us <ArrowRight className="ml-2 w-4 h-4" />
-              </div>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Current Programs Preview */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-6 md:px-12 lg:px-16">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-16">
-              <div className="flex items-center justify-center mb-6">
-                <Clock className="w-12 h-12 text-blue-600 mr-3" />
-                <Calendar className="w-10 h-10 text-blue-600" />
-              </div>
-              <h2 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900">Current Programs</h2>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">Regular opportunities to connect and grow together</p>
+              <Button variant="secondary" size="hero" showArrow href="/contact" className="bg-white text-primary-600 hover:bg-secondary-50 relative z-10">
+                Share Your Story
+              </Button>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              {loading ? (
-                // Loading skeleton for programs
-                [...Array(4)].map((_, index) => (
-                  <div key={index} className="bg-gray-100 p-10 rounded-2xl border-2 border-gray-200 shadow-xl animate-pulse">
-                    <div className="w-16 h-16 bg-gray-300 rounded-full mb-6"></div>
-                    <div className="h-8 bg-gray-300 rounded mb-4"></div>
-                    <div className="space-y-2 mb-6">
-                      <div className="h-4 bg-gray-300 rounded"></div>
-                      <div className="h-4 bg-gray-300 rounded"></div>
-                      <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-                    </div>
-                    <div className="h-12 bg-gray-300 rounded"></div>
-                  </div>
-                ))
-              ) : (
-                programs.slice(0, 4).map((program, index) => {
-                  const colors = [
-                    { bg: 'blue', icon: Clock },
-                    { bg: 'green', icon: Users },
-                    { bg: 'red', icon: Heart },
-                    { bg: 'yellow', icon: Globe }
-                  ];
-                  const colorConfig = colors[index % colors.length];
-                  const IconComponent = colorConfig.icon;
-                  
-                  return (
-                    <div key={program.id} className={`bg-${colorConfig.bg}-50 p-10 rounded-2xl border-2 border-${colorConfig.bg}-200 shadow-xl`}>
-                      <div className={`bg-${colorConfig.bg}-600 p-4 rounded-full w-16 h-16 mb-6 shadow-lg`}>
-                        <IconComponent className="w-8 h-8 text-white" />
-                      </div>
-                      <h3 className="text-3xl font-bold text-gray-900 mb-4">{program.title}</h3>
-                      <p className="text-gray-700 mb-6 text-lg leading-relaxed">
-                        {program.description.length > 120 
-                          ? `${program.description.substring(0, 120)}...` 
-                          : program.description
-                        }
-                      </p>
-                      <div className="bg-white p-4 rounded-xl border border-gray-200">
-                        <div className="text-gray-600 font-bold text-lg flex items-center">
-                          <CheckCircle className="w-5 h-5 mr-2" />
-                          <span>{program.schedule}</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-      {/* Support Our Mission Section */}
-      <section className="py-20 bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
-        <div className="container mx-auto px-6 md:px-12 lg:px-16">
-          <div className="text-center max-w-4xl mx-auto">
-            <div className="flex items-center justify-center mb-6">
-              <Heart className="w-16 h-16 text-white mr-4" />
-              <DollarSign className="w-12 h-12 text-white" />
-            </div>
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Support Our Mission
-            </h2>
-            <p className="text-xl mb-10 text-blue-100 leading-relaxed max-w-3xl mx-auto">
-              Your generous donation helps us continue serving international students, 
-              creating community, and sharing God's love across cultures. Every gift, 
-              no matter the size, makes a meaningful difference.
-            </p>
-
-            <Link
-              href="/payments"
-              className="bg-white text-blue-600 px-10 py-4 rounded-xl hover:bg-gray-100 transition-all duration-300 font-bold text-lg inline-flex items-center shadow-2xl transform hover:scale-105"
-            >
-              <Heart className="mr-3 w-6 h-6" />
-              Make a Donation
-              <ArrowRight className="ml-2 w-5 h-5" />
-            </Link>
-
-            <div className="mt-8 text-blue-100 text-sm">
-              <p>All donations are tax-deductible • Secure payment processing</p>
-            </div>
-          </div>
+          </ScrollReveal>
         </div>
       </section>
 
