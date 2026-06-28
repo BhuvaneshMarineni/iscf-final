@@ -108,13 +108,29 @@ export async function getFeaturedEvents(): Promise<Event[]> {
   }
 }
 
+/**
+ * @deprecated Use getEvents() or getFeaturedEvents() instead.
+ * Kept temporarily during refactor to avoid breaking existing imports.
+ */
 export async function getActiveEvents(): Promise<Event[]> {
+  return getEvents();
+}
+
+export async function getNextUpcomingEvent(): Promise<Event | null> {
   try {
     const events = await getEvents();
-    return events.filter(event => event.status === 'active');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const upcoming = events
+      .filter(event => event.status === 'upcoming' || event.status === 'active')
+      .filter(event => new Date(event.date) >= today)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    return upcoming[0] || null;
   } catch (error) {
-    console.error('Error fetching active events:', error);
-    return [];
+    console.error('Error fetching next upcoming event:', error);
+    return null;
   }
 }
 

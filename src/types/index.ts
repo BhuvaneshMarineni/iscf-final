@@ -1,14 +1,24 @@
 // Shared type definitions for the ISCF website
+//
+// Canonical API types are defined in src/lib/api.ts and are re-exported here
+// for convenience. The simpler view-model types below are used by the admin
+// dashboard and are intentionally kept separate from the richer API shapes.
 
+export type {
+  Event as ApiEvent,
+  GalleryImage,
+  GalleryAlbum,
+  Program as ApiProgram,
+  Testimonial as ApiTestimonial,
+} from '@/lib/api';
+
+// Admin dashboard view models
 export interface Event {
   id: number;
   title: string;
   date: string;
   status: 'upcoming' | 'active' | 'completed' | 'cancelled';
   attendees: number;
-  description?: string;
-  location?: string;
-  maxAttendees?: number;
 }
 
 export interface Photo {
@@ -26,18 +36,6 @@ export interface Program {
   schedule: string;
   status: 'active' | 'paused' | 'inactive' | 'draft';
   participants: number;
-  description?: string;
-  maxParticipants?: number;
-  coordinator?: string;
-  contactEmail?: string;
-}
-
-export interface Testimonial {
-  id: number;
-  name: string;
-  role: string;
-  content: string;
-  image?: string;
 }
 
 export interface User {
