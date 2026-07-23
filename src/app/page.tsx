@@ -438,7 +438,7 @@ export default function Home() {
                   What Students Say
                 </h2>
               </div>
-              <Link href="/about" className="hidden lg:inline-flex items-center text-primary-600 font-semibold hover:text-primary-700 transition-colors group mt-4 lg:mt-0">
+              <Link href="/stories" className="hidden lg:inline-flex items-center text-primary-600 font-semibold hover:text-primary-700 transition-colors group mt-4 lg:mt-0">
                 View all stories
                 <ChevronRight className="w-5 h-5 ml-1 transition-transform group-hover:translate-x-1" />
               </Link>
