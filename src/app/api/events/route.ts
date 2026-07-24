@@ -32,7 +32,8 @@ export async function POST(request: Request) {
     const eventWithId = {
       ...newEvent,
       id: Math.max(...eventsData.map((e: any) => e.id), 0) + 1,
-      currentAttendees: 0
+      currentAttendees: 0,
+      image: newEvent.image || ''
     };
     
     eventsData.push(eventWithId);

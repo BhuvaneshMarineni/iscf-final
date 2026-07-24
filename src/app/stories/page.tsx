@@ -71,13 +71,8 @@ export default function Stories() {
                     key={testimonial.id}
                     className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl transition-shadow flex flex-col"
                   >
-                    <div className="relative h-64 overflow-hidden">
-                      <img
-                        src={testimonial.image}
-                        alt={testimonial.name}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full p-2">
+                    <div className="flex justify-end px-6 pt-6">
+                      <div className="rounded-full bg-blue-50 p-2">
                         <Quote className="w-5 h-5 text-blue-600" />
                       </div>
                     </div>

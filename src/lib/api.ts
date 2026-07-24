@@ -10,7 +10,9 @@ export interface Event {
   date: string;
   time: string;
   endTime?: string;
+  locationType: 'location' | 'online';
   location: string;
+  onlineLink?: string;
   category: string;
   status: 'active' | 'upcoming' | 'completed' | 'draft';
   recurring: boolean;

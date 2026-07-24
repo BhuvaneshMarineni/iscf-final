@@ -27,7 +27,13 @@ export interface Photo {
   category: string;
   date: string;
   count: number;
-  images?: string[];
+  images?: Array<{
+    id: number;
+    url: string;
+    thumbnail?: string;
+    alt: string;
+    caption: string;
+  }>;
 }
 
 export interface Program {

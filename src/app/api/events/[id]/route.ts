@@ -2,6 +2,36 @@ import { NextResponse } from 'next/server';
 import path from 'path';
 import { promises as fs } from 'fs';
 
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const id = parseInt(params.id);
+    
+    const jsonDirectory = path.join(process.cwd(), 'src/data');
+    const fileContents = await fs.readFile(jsonDirectory + '/events.json', 'utf8');
+    const eventsData = JSON.parse(fileContents);
+    
+    const event = eventsData.find((e: any) => e.id === id);
+    
+    if (!event) {
+      return NextResponse.json(
+        { error: 'Event not found' },
+        { status: 404 }
+      );
+    }
+    
+    return NextResponse.json(event);
+  } catch (error) {
+    console.error('Error fetching event:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch event' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }

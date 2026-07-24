@@ -1,16 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Calendar, Clock, MapPin, Users, Heart, Globe, BookOpen, Award, Eye, X } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Heart, BookOpen, Award, X } from 'lucide-react';
 import Link from 'next/link';
 import clsx from 'clsx';
-import { getEvents, getActivePrograms, formatEventDate, formatEventTime } from '@/lib/api';
-import type { Event, Program } from '@/lib/api';
+import { getEvents, formatEventDate, formatEventTime } from '@/lib/api';
+import type { Event } from '@/lib/api';
 import CalendarComponent from '@/components/ui/Calendar';
 
 export default function Events() {
   const [events, setEvents] = useState<Event[]>([]);
-  const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
@@ -22,15 +21,11 @@ export default function Events() {
       try {
         setLoading(true);
         setError(null);
-        const [eventsData, programsData] = await Promise.all([
-          getEvents(),
-          getActivePrograms()
-        ]);
+        const eventsData = await getEvents();
         setEvents(eventsData);
-        setPrograms(programsData);
       } catch (error) {
         console.error('Error fetching data:', error);
-        setError('Failed to load events and programs. Please try again later.');
+        setError('Failed to load events. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -67,8 +62,33 @@ export default function Events() {
     };
   }, []);
 
-  const weeklyPrograms = programs.filter(program => program.recurring);
-  const upcomingEvents = events.filter(event => event.status === 'upcoming' || event.status === 'active');
+  const weeklyPrograms = events.filter(event => event.recurring && (event.schedule === 'Weekly' || event.schedule === 'Daily' || event.schedule === 'Monthly' || event.schedule === 'Yearly' || event.schedule.startsWith('Every')));
+  
+  const now = new Date();
+  
+  const upcomingEvents = events.filter(event => {
+    // Skip recurring events - they're already in weeklyPrograms
+    if (event.recurring) return false;
+    
+    // Parse date and time in local timezone
+    const [year, month, day] = event.date.split('-').map(Number);
+    const [hours, minutes] = event.time.split(':').map(Number);
+    const eventDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+    const isUpcoming = eventDate >= now;
+    return isUpcoming && (event.status === 'upcoming' || event.status === 'active');
+  });
+
+  const pastEvents = events.filter(event => {
+    // Skip recurring events
+    if (event.recurring) return false;
+    
+    // Parse date and time in local timezone
+    const [year, month, day] = event.date.split('-').map(Number);
+    const [hours, minutes] = event.time.split(':').map(Number);
+    const eventDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+    const isPast = eventDate < now;
+    return isPast;
+  });
 
   const handleEventClick = (event: Event) => {
     setSelectedEvent(event);
@@ -86,6 +106,165 @@ export default function Events() {
     // Prevent body scroll when modal opens
     document.body.style.overflow = 'hidden';
   };
+
+  const totalActiveEvents = weeklyPrograms.length + upcomingEvents.length;
+
+  const renderWeeklyProgramCard = (event: Event, index: number) => {
+    const colors = [
+      { primary: 'blue', secondary: 'indigo' },
+      { primary: 'green', secondary: 'emerald' },
+      { primary: 'purple', secondary: 'violet' },
+      { primary: 'red', secondary: 'rose' }
+    ];
+    const colorConfig = colors[index % colors.length];
+    
+    return (
+      <div 
+        key={event.id} 
+        className={clsx(
+          'bg-white rounded-xl shadow-lg overflow-hidden border-t-4',
+          `border-${colorConfig.primary}-500`
+        )}
+      >
+        <div className={clsx(
+          'p-6 text-white',
+          `bg-gradient-to-r from-${colorConfig.primary}-600 to-${colorConfig.secondary}-700`
+        )}>
+          <div className="flex items-center">
+            <BookOpen className="w-10 h-10 mr-4" />
+            <div>
+              <h3 className="text-2xl font-bold">{event.title}</h3>
+              <p className={`text-${colorConfig.primary}-100`}>{event.category}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="p-6">
+          <p className="text-gray-700 leading-relaxed mb-6">
+            {event.description}
+          </p>
+          
+          <div className="space-y-3 mb-6">
+            <div className="flex items-center text-gray-600">
+              <Clock className="w-5 h-5 mr-3" />
+              <span>{event.schedule}</span>
+            </div>
+            <div className="flex items-center text-gray-600">
+              <MapPin className="w-5 h-5 mr-3" />
+              <span>{event.location}</span>
+            </div>
+            <div className="flex items-center text-gray-600">
+              <Users className="w-5 h-5 mr-3" />
+              <span>{event.currentAttendees} participants</span>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <span className={clsx(
+              'px-3 py-1 rounded-full text-sm font-medium',
+              event.status === 'active' 
+                ? `bg-${colorConfig.primary}-100 text-${colorConfig.primary}-800`
+                : 'bg-gray-100 text-gray-800'
+            )}>
+              {event.status === 'active' ? 'Active' : 'Paused'}
+            </span>
+            <Link
+              href="/contact"
+              className={clsx(
+                'px-4 py-2 rounded-lg font-medium transition-colors',
+                `bg-${colorConfig.primary}-600 text-white hover:bg-${colorConfig.primary}-700`
+              )}
+            >
+              Join Program
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderUpcomingEventCard = (event: Event) => (
+    <div key={event.id} className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-shadow">
+      <div className="aspect-video overflow-hidden bg-gradient-to-br from-blue-100 to-indigo-100">
+        {event.image ? (
+          <img
+            src={event.image}
+            alt={event.title}
+            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Calendar className="w-16 h-16 text-blue-300" />
+          </div>
+        )}
+      </div>
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+            {event.category}
+          </span>
+          {event.featured && (
+            <span className="text-sm font-medium text-yellow-600 bg-yellow-50 px-3 py-1 rounded-full flex items-center">
+              <Award className="w-4 h-4 mr-1" />
+              Featured
+            </span>
+          )}
+        </div>
+        
+        <h3 className="text-xl font-bold text-gray-900 mb-3">{event.title}</h3>
+        <p className="text-gray-600 leading-relaxed mb-4">
+          {event.description.length > 100 
+            ? `${event.description.substring(0, 100)}...` 
+            : event.description
+          }
+        </p>
+        
+        <div className="space-y-2 mb-6">
+          <div className="flex items-center text-gray-600">
+            <Calendar className="w-4 h-4 mr-3" />
+            <span>{formatEventDate(event.date)}</span>
+          </div>
+          <div className="flex items-center text-gray-600">
+            <Clock className="w-4 h-4 mr-3" />
+            <span>{formatEventTime(event.time)}</span>
+            {event.endTime && (
+              <span> - {formatEventTime(event.endTime)}</span>
+            )}
+          </div>
+          <div className="flex items-center text-gray-600">
+            <MapPin className="w-4 h-4 mr-3" />
+            <span>{event.location}</span>
+          </div>
+          <div className="flex items-center text-gray-600">
+            <Users className="w-4 h-4 mr-3" />
+            <span>
+              {event.currentAttendees}
+              {event.maxAttendees && ` / ${event.maxAttendees}`} attendees
+            </span>
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <span className={clsx(
+            'px-3 py-1 rounded-full text-sm font-medium',
+            event.status === 'active' ? 'bg-green-100 text-green-800' :
+            event.status === 'upcoming' ? 'bg-blue-100 text-blue-800' :
+            'bg-gray-100 text-gray-800'
+          )}>
+            {event.status === 'active' ? 'Active' : 
+             event.status === 'upcoming' ? 'Upcoming' : 
+             event.status}
+          </span>
+          <Link
+            href="/contact"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            {event.registrationRequired ? 'Register' : 'Learn More'}
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen">
@@ -146,17 +325,119 @@ export default function Events() {
       {/* List View */}
       {viewMode === 'list' && (
         <>
-          {/* Weekly Programs */}
-          <section className="py-16 bg-gradient-to-b from-green-50 to-white">
-            <div className="container mx-auto px-4">
-              <div className="max-w-6xl mx-auto">
-                <div className="text-center mb-12">
-                  <BookOpen className="w-12 h-12 mx-auto mb-4 text-green-600" />
-                  <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Weekly Programs</h2>
-                  <p className="text-lg text-gray-600">Regular opportunities to connect and grow together</p>
+          {/* Error State */}
+          {!loading && error && (
+            <section className="py-16 bg-gradient-to-b from-green-50 to-white">
+              <div className="container mx-auto px-4">
+                <div className="max-w-6xl mx-auto text-center">
+                  <div className="text-red-500 text-lg mb-4">{error}</div>
+                  <button 
+                    onClick={() => window.location.reload()}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Try Again
+                  </button>
                 </div>
+              </div>
+            </section>
+          )}
 
-                {loading ? (
+          {/* Empty State */}
+          {!loading && !error && totalActiveEvents === 0 && (
+            <section className="py-16 bg-gradient-to-b from-green-50 to-white">
+              <div className="container mx-auto px-4">
+                <div className="max-w-6xl mx-auto text-center">
+                  <Calendar className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                  <p className="text-gray-500 text-lg">No events at the moment</p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Combined Small Count View (<=2 events total) */}
+          {!loading && !error && totalActiveEvents <= 2 && totalActiveEvents > 0 && (
+            <section className="py-16 bg-gradient-to-b from-green-50 to-white">
+              <div className="container mx-auto px-4">
+                <div className="max-w-6xl mx-auto">
+                  <div className="text-center mb-12">
+                    <Calendar className="w-12 h-12 mx-auto mb-4 text-blue-600" />
+                    <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Events</h2>
+                    <p className="text-lg text-gray-600">Join us at ISCF</p>
+                  </div>
+
+                  <div className={clsx(
+                    'grid gap-8',
+                    totalActiveEvents === 1 
+                      ? 'grid-cols-1' 
+                      : 'grid-cols-1 md:grid-cols-2'
+                  )}>
+                    {weeklyPrograms.map((event, index) => renderWeeklyProgramCard(event, index))}
+                    {upcomingEvents.map((event) => renderUpcomingEventCard(event))}
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Recurring Programs */}
+          {!loading && totalActiveEvents > 2 && weeklyPrograms.length > 0 && (
+            <section className="py-16 bg-gradient-to-b from-green-50 to-white">
+              <div className="container mx-auto px-4">
+                <div className="max-w-6xl mx-auto">
+                  <div className="text-center mb-12">
+                    <BookOpen className="w-12 h-12 mx-auto mb-4 text-green-600" />
+                    <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Recurring Programs</h2>
+                    <p className="text-lg text-gray-600">Regular opportunities to connect and grow together</p>
+                  </div>
+
+                  <div className={clsx(
+                    'grid gap-8',
+                    weeklyPrograms.length === 1 
+                      ? 'grid-cols-1' 
+                      : 'grid-cols-1 md:grid-cols-2'
+                  )}>
+                    {weeklyPrograms.map((event, index) => renderWeeklyProgramCard(event, index))}
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Upcoming Events */}
+          {!loading && totalActiveEvents > 2 && upcomingEvents.length > 0 && (
+            <section className="py-16 bg-white">
+              <div className="container mx-auto px-4">
+                <div className="max-w-6xl mx-auto">
+                  <div className="text-center mb-12">
+                    <Calendar className="w-12 h-12 mx-auto mb-4 text-blue-600" />
+                    <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Upcoming Events</h2>
+                    <p className="text-lg text-gray-600">Special events and celebrations coming up</p>
+                  </div>
+
+                  <div className={clsx(
+                    'grid gap-8',
+                    upcomingEvents.length === 1 
+                      ? 'grid-cols-1' 
+                      : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+                  )}>
+                    {upcomingEvents.map((event) => renderUpcomingEventCard(event))}
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Loading State */}
+          {loading && (
+            <section className="py-16 bg-gradient-to-b from-green-50 to-white">
+              <div className="container mx-auto px-4">
+                <div className="max-w-6xl mx-auto">
+                  <div className="text-center mb-12">
+                    <BookOpen className="w-12 h-12 mx-auto mb-4 text-green-600" />
+                    <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Recurring Programs</h2>
+                    <p className="text-lg text-gray-600">Regular opportunities to connect and grow together</p>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {[...Array(4)].map((_, index) => (
                       <div key={index} className="bg-white rounded-xl shadow-lg p-8 border border-gray-200 animate-pulse">
@@ -171,158 +452,49 @@ export default function Events() {
                       </div>
                     ))}
                   </div>
-                ) : error ? (
-                  <div className="text-center py-12">
-                    <div className="text-red-500 text-lg mb-4">{error}</div>
-                    <button 
-                      onClick={() => window.location.reload()}
-                      className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Try Again
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {weeklyPrograms.map((program, index) => {
-                      const colors = [
-                        { primary: 'blue', secondary: 'indigo' },
-                        { primary: 'green', secondary: 'emerald' },
-                        { primary: 'purple', secondary: 'violet' },
-                        { primary: 'red', secondary: 'rose' }
-                      ];
-                      const colorConfig = colors[index % colors.length];
-                      
-                      return (
-                        <div 
-                          key={program.id} 
-                          className={clsx(
-                            'bg-white rounded-xl shadow-lg overflow-hidden border-t-4',
-                            `border-${colorConfig.primary}-500`
-                          )}
-                        >
-                          <div className={clsx(
-                            'p-6 text-white',
-                            `bg-gradient-to-r from-${colorConfig.primary}-600 to-${colorConfig.secondary}-700`
-                          )}>
-                            <div className="flex items-center">
-                              <BookOpen className="w-10 h-10 mr-4" />
-                              <div>
-                                <h3 className="text-2xl font-bold">{program.title}</h3>
-                                <p className={`text-${colorConfig.primary}-100`}>{program.category}</p>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="p-6">
-                            <p className="text-gray-700 leading-relaxed mb-6">
-                              {program.description}
-                            </p>
-                            
-                            <div className="space-y-3 mb-6">
-                              <div className="flex items-center text-gray-600">
-                                <Clock className="w-5 h-5 mr-3" />
-                                <span>{program.schedule}</span>
-                              </div>
-                              <div className="flex items-center text-gray-600">
-                                <MapPin className="w-5 h-5 mr-3" />
-                                <span>{program.location}</span>
-                              </div>
-                              <div className="flex items-center text-gray-600">
-                                <Users className="w-5 h-5 mr-3" />
-                                <span>{program.currentParticipants} participants</span>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center justify-between">
-                              <span className={clsx(
-                                'px-3 py-1 rounded-full text-sm font-medium',
-                                program.status === 'active' 
-                                  ? `bg-${colorConfig.primary}-100 text-${colorConfig.primary}-800`
-                                  : 'bg-gray-100 text-gray-800'
-                              )}>
-                                {program.status === 'active' ? 'Active' : 'Paused'}
-                              </span>
-                              <Link
-                                href="/contact"
-                                className={clsx(
-                                  'px-4 py-2 rounded-lg font-medium transition-colors',
-                                  `bg-${colorConfig.primary}-600 text-white hover:bg-${colorConfig.primary}-700`
-                                )}
-                              >
-                                Join Program
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* Upcoming Events */}
-          <section className="py-16 bg-white">
-            <div className="container mx-auto px-4">
-              <div className="max-w-6xl mx-auto">
-                <div className="text-center mb-12">
-                  <Calendar className="w-12 h-12 mx-auto mb-4 text-blue-600" />
-                  <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Upcoming Events</h2>
-                  <p className="text-lg text-gray-600">Special events and celebrations coming up</p>
                 </div>
+              </div>
+            </section>
+          )}
 
-                {loading ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {[...Array(6)].map((_, index) => (
-                      <div key={index} className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-pulse">
-                        <div className="aspect-video bg-gray-300"></div>
-                        <div className="p-6">
-                          <div className="h-6 bg-gray-300 rounded mb-4"></div>
-                          <div className="space-y-2 mb-4">
-                            <div className="h-4 bg-gray-300 rounded"></div>
-                            <div className="h-4 bg-gray-300 rounded"></div>
-                          </div>
-                          <div className="h-10 bg-gray-300 rounded"></div>
-                        </div>
-                      </div>
-                    ))}
+          {/* Past Events */}
+          {pastEvents.length > 0 && (
+            <section className="py-16 bg-gray-50">
+              <div className="container mx-auto px-4">
+                <div className="max-w-6xl mx-auto">
+                  <div className="text-center mb-12">
+                    <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Past Events</h2>
+                    <p className="text-lg text-gray-600">Events that have already taken place</p>
                   </div>
-                ) : error ? (
-                  <div className="text-center py-12">
-                    <div className="text-red-500 text-lg">{error}</div>
-                  </div>
-                ) : upcomingEvents.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Calendar className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                    <p className="text-gray-500 text-lg">No upcoming events at the moment</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {upcomingEvents.map((event) => (
-                      <div key={event.id} className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-shadow">
+
+                  <div className={clsx(
+                    'grid gap-8',
+                    pastEvents.length === 1 
+                      ? 'grid-cols-1' 
+                      : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+                  )}>
+                    {pastEvents.map((event) => (
+                      <div key={event.id} className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden opacity-75">
                         <div className="aspect-video overflow-hidden">
                           <img
                             src={event.image}
                             alt={event.title}
-                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                            className="w-full h-full object-cover"
                           />
                         </div>
                         <div className="p-6">
                           <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                            <span className="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
                               {event.category}
                             </span>
-                            {event.featured && (
-                              <span className="text-sm font-medium text-yellow-600 bg-yellow-50 px-3 py-1 rounded-full flex items-center">
-                                <Award className="w-4 h-4 mr-1" />
-                                Featured
-                              </span>
-                            )}
+                            <span className="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                              Completed
+                            </span>
                           </div>
                           
-                          <h3 className="text-xl font-bold text-gray-900 mb-3">{event.title}</h3>
-                          <p className="text-gray-600 leading-relaxed mb-4">
+                          <h3 className="text-xl font-bold text-gray-700 mb-3">{event.title}</h3>
+                          <p className="text-gray-500 leading-relaxed mb-4">
                             {event.description.length > 100 
                               ? `${event.description.substring(0, 100)}...` 
                               : event.description
@@ -330,56 +502,27 @@ export default function Events() {
                           </p>
                           
                           <div className="space-y-2 mb-6">
-                            <div className="flex items-center text-gray-600">
+                            <div className="flex items-center text-gray-400">
                               <Calendar className="w-4 h-4 mr-3" />
                               <span>{formatEventDate(event.date)}</span>
                             </div>
-                            <div className="flex items-center text-gray-600">
+                            <div className="flex items-center text-gray-400">
                               <Clock className="w-4 h-4 mr-3" />
                               <span>{formatEventTime(event.time)}</span>
-                              {event.endTime && (
-                                <span> - {formatEventTime(event.endTime)}</span>
-                              )}
                             </div>
-                            <div className="flex items-center text-gray-600">
+                            <div className="flex items-center text-gray-400">
                               <MapPin className="w-4 h-4 mr-3" />
                               <span>{event.location}</span>
                             </div>
-                            <div className="flex items-center text-gray-600">
-                              <Users className="w-4 h-4 mr-3" />
-                              <span>
-                                {event.currentAttendees}
-                                {event.maxAttendees && ` / ${event.maxAttendees}`} attendees
-                              </span>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <span className={clsx(
-                              'px-3 py-1 rounded-full text-sm font-medium',
-                              event.status === 'active' ? 'bg-green-100 text-green-800' :
-                              event.status === 'upcoming' ? 'bg-blue-100 text-blue-800' :
-                              'bg-gray-100 text-gray-800'
-                            )}>
-                              {event.status === 'active' ? 'Active' : 
-                               event.status === 'upcoming' ? 'Upcoming' : 
-                               event.status}
-                            </span>
-                            <Link
-                              href="/contact"
-                              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                            >
-                              {event.registrationRequired ? 'Register' : 'Learn More'}
-                            </Link>
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                )}
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          )}
         </>
       )}
 
@@ -398,12 +541,18 @@ export default function Events() {
             </div>
             
             <div className="p-6">
-              <div className="aspect-video overflow-hidden rounded-lg mb-6">
-                <img
-                  src={selectedEvent.image}
-                  alt={selectedEvent.title}
-                  className="w-full h-full object-cover"
-                />
+              <div className="aspect-video overflow-hidden rounded-lg mb-6 bg-gradient-to-br from-blue-100 to-indigo-100">
+                {selectedEvent.image ? (
+                  <img
+                    src={selectedEvent.image}
+                    alt={selectedEvent.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Calendar className="w-16 h-16 text-blue-300" />
+                  </div>
+                )}
               </div>
               
               <div className="space-y-4 mb-6">

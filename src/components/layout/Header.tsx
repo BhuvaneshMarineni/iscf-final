@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
-import { Menu, X, Moon, Sun, Heart, Calendar, Clock, MapPin } from 'lucide-react';
+import { Menu, X, Heart, Calendar, Clock, MapPin } from 'lucide-react';
 import Logo from '@/components/ui/Logo';
 
 /* ─── Ticker data ─────────────────────────────────────────────────── */
@@ -43,7 +43,6 @@ const STRIP_H       = 48;
 const Header = () => {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen]   = useState(false);
-  const [isDarkMode, setIsDarkMode]   = useState(false);
   const [scrolled, setScrolled]       = useState(false);
   const [tickerPaused, setTickerPaused] = useState(false);
   const scrolledRef = useRef(false);
@@ -216,13 +215,6 @@ const Header = () => {
               <Heart className="w-4 h-4 fill-white shrink-0" />
               Donate
             </Link>
-            <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="p-2.5 rounded-full hover:bg-[#F1F5F9] transition-colors text-[#64748B]"
-              aria-label="Toggle dark mode"
-            >
-              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="lg:hidden p-2.5 rounded-full hover:bg-[#F1F5F9] transition-colors text-[#64748B]"

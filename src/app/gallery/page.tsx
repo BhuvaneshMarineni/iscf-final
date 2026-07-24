@@ -64,7 +64,7 @@ export default function Gallery() {
           <div className="max-w-4xl mx-auto">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <div className="text-3xl font-bold text-google-blue-600 mb-2">29</div>
+                <div className="text-3xl font-bold text-primary-600 mb-2">29</div>
                 <div className="text-gray-700">Years of Memories</div>
               </div>
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
@@ -94,7 +94,7 @@ export default function Gallery() {
                   onClick={() => setActiveSection('photos')}
                   className={`px-6 py-2 rounded-md font-medium transition-colors ${
                     activeSection === 'photos'
-                      ? 'bg-google-blue-600 text-white'
+                      ? 'bg-primary-600 text-white'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
@@ -104,7 +104,7 @@ export default function Gallery() {
                   onClick={() => setActiveSection('videos')}
                   className={`px-6 py-2 rounded-md font-medium transition-colors ${
                     activeSection === 'videos'
-                      ? 'bg-google-blue-600 text-white'
+                      ? 'bg-primary-600 text-white'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
@@ -120,8 +120,8 @@ export default function Gallery() {
                   onClick={() => setSelectedCategory(category)}
                   className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                     category === selectedCategory
-                      ? 'bg-google-blue-600 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-google-blue-50 hover:border-google-blue-300'
+                      ? 'bg-primary-600 text-white shadow-md'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-primary-50 hover:border-primary-300'
                   }`}
                 >
                   {category}
@@ -172,18 +172,36 @@ export default function Gallery() {
                         onClick={() => openModal(album)}
                       >
                         <div className="aspect-square overflow-hidden relative">
-                          <img
-                            src={album.images[0]?.thumbnail || album.images[0]?.url}
-                            alt={album.images[0]?.alt || album.title}
-                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                          />
+                          {album.images[0] ? (
+                            <img
+                              src={album.images[0]?.thumbnail || album.images[0]?.url}
+                              alt={album.images[0]?.alt || album.title}
+                              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                              onError={(e) => {
+                                console.error('Image load error:', album.images[0]?.url);
+                                const img = e.target as HTMLImageElement;
+                                img.style.display = 'none';
+                                const parent = img.parentElement;
+                                if (parent) {
+                                  const fallback = document.createElement('div');
+                                  fallback.className = 'w-full h-full bg-gray-200 flex items-center justify-center';
+                                  fallback.innerHTML = '<svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
+                                  parent.appendChild(fallback);
+                                }
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                              <Camera className="w-12 h-12 text-gray-400" />
+                            </div>
+                          )}
                           <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
                             {album.images.length} photos
                           </div>
                         </div>
                         <div className="p-4">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-medium text-google-blue-600 bg-google-blue-50 px-2 py-1 rounded">
+                            <span className="text-xs font-medium text-primary-600 bg-primary-50 px-2 py-1 rounded">
                               {album.category}
                             </span>
                           </div>
@@ -275,18 +293,23 @@ export default function Gallery() {
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 {selectedMedia.images.map((image, index) => (
-                  <img
-                    key={image.id}
-                    src={image.url}
-                    alt={image.alt}
-                    className="w-full h-64 object-cover rounded-lg"
-                  />
+                  <div key={image.id} className="relative">
+                    <img
+                      src={image.url}
+                      alt={image.alt}
+                      className="w-full h-64 object-cover rounded-lg"
+                      onError={(e) => {
+                        console.error('Image load error in modal:', image.url);
+                        (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect width="100" height="100" fill="%23e5e7eb"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%236b7280"%3EImage not found%3C/text%3E%3C/svg%3E';
+                      }}
+                    />
+                  </div>
                 ))}
               </div>
               
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex items-center mb-3">
-                  <span className="text-sm font-medium text-google-blue-600 bg-google-blue-50 px-3 py-1 rounded">
+                  <span className="text-sm font-medium text-primary-600 bg-primary-50 px-3 py-1 rounded">
                     {selectedMedia.category}
                   </span>
                   <span className="text-sm text-gray-500 ml-3">
@@ -349,8 +372,8 @@ export default function Gallery() {
                 />
                 <div className="p-6">
                   <div className="flex items-center mb-3">
-                    <Calendar className="w-6 h-6 text-google-blue-600 mr-2" />
-                    <span className="text-sm font-medium text-google-blue-600">Milestone</span>
+                    <Calendar className="w-6 h-6 text-primary-600 mr-2" />
+                    <span className="text-sm font-medium text-primary-600">Milestone</span>
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 mb-3">25th Anniversary Celebration</h3>
                   <p className="text-gray-700 leading-relaxed">

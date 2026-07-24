@@ -6,86 +6,66 @@ import {
   Calendar, Heart, Users, Globe, MapPin, Clock, Home as HomeIcon, 
   Star, Quote, GraduationCap, Award, Sparkles, ChevronRight, ChevronLeft
 } from 'lucide-react';
-import { getFeaturedTestimonials, getEvents } from '@/lib/api';
+import { getTestimonials, getEvents } from '@/lib/api';
 import type { Testimonial, Event } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import GlassCard from '@/components/ui/GlassCard';
 import ScrollReveal from '@/components/ScrollReveal';
 
-const getCountryFlag = (country: string): string => {
-  const flags: { [key: string]: string } = {
-    'China': '🇨🇳', 'India': '🇮🇳', 'South Korea': '🇰🇷', 'Japan': '🇯🇵',
-    'Brazil': '🇧🇷', 'Nigeria': '🇳🇬', 'Ghana': '🇬🇭', 'Kenya': '🇰🇪',
-    'Mexico': '🇲🇽', 'Venezuela': '🇻🇪', 'Colombia': '🇨🇴', 'Taiwan': '🇹🇼',
-    'Thailand': '🇹🇭', 'Vietnam': '🇻🇳', 'Indonesia': '🇮🇩', 'Philippines': '🇵🇭',
-    'Turkey': '🇹🇷', 'Iran': '🇮🇷', 'Saudi Arabia': '🇸🇦', 'Egypt': '🇪🇬',
-    'Germany': '🇩🇪', 'France': '🇫🇷', 'United Kingdom': '🇬🇧', 'Spain': '🇪🇸',
-    'Italy': '🇮🇹', 'Canada': '🇨🇦', 'Australia': '🇦🇺', 'Russia': '🇷🇺',
-    'Pakistan': '🇵🇰', 'Bangladesh': '🇧🇩', 'Sri Lanka': '🇱🇰', 'Nepal': '🇳🇵',
-  };
-  return flags[country] || '🌍';
-};
-
-const mockUpcomingEvents: Event[] = [
-  {
-    id: 1,
-    title: 'Fall Welcome Banquet 2024',
-    description: 'Join us for our annual welcome celebration with food, music, and fellowship!',
-    date: '2024-09-15',
-    time: '18:00',
-    location: 'ODU Student Center',
-    category: 'Social',
-    status: 'upcoming',
-    recurring: false,
-    schedule: 'September 15, 2024',
-    currentAttendees: 120,
-    registrationRequired: true,
-    featured: true,
-    image: 'https://images.pexels.com/photos/5877413/pexels-photo-5877413.jpeg?auto=compress&cs=tinysrgb&w=800',
-  },
-  {
-    id: 2,
-    title: 'International Food Festival',
-    description: 'Experience cuisines from around the world shared by our international community.',
-    date: '2024-10-05',
-    time: '12:00',
-    location: 'Campus Green',
-    category: 'Cultural',
-    status: 'upcoming',
-    recurring: false,
-    schedule: 'October 5, 2024',
-    currentAttendees: 85,
-    registrationRequired: false,
-    featured: true,
-    image: 'https://images.pexels.com/photos/5779787/pexels-photo-5779787.jpeg?auto=compress&cs=tinysrgb&w=800',
-  },
-  {
-    id: 3,
-    title: 'Bible Study Kickoff',
-    description: 'Start your semester with faith and community at our weekly Bible study.',
-    date: '2024-09-08',
-    time: '19:00',
-    location: 'Student Union Room 201',
-    category: 'Spiritual',
-    status: 'upcoming',
-    recurring: true,
-    schedule: 'Every Thursday, 7:00 PM',
-    currentAttendees: 45,
-    registrationRequired: false,
-    featured: true,
-    image: 'https://images.pexels.com/photos/1181396/pexels-photo-1181396.jpeg?auto=compress&cs=tinysrgb&w=800',
-  },
-];
-
 export default function Home() {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  const [weeklyPrograms, setWeeklyPrograms] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scrollY, setScrollY] = useState(0);
   const [activeTestimonial, setActiveTestimonial] = useState(0);
   const [activeBannerEvent, setActiveBannerEvent] = useState(0);
+  const [showStoryForm, setShowStoryForm] = useState(false);
+  const [isSubmittingStory, setIsSubmittingStory] = useState(false);
+  const [storySubmissionMessage, setStorySubmissionMessage] = useState<string | null>(null);
+  const [storyForm, setStoryForm] = useState({
+    name: '',
+    country: '',
+    program: '',
+    testimonial: '',
+  });
+
+  const handleStoryInputChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = event.target;
+    setStoryForm(currentForm => ({ ...currentForm, [name]: value }));
+  };
+
+  const handleStorySubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmittingStory(true);
+    setStorySubmissionMessage(null);
+
+    try {
+      const response = await fetch('/api/testimonials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(storyForm),
+      });
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData.error || 'Unable to submit your story');
+      }
+
+      setTestimonials(currentTestimonials => [responseData, ...currentTestimonials].slice(0, 3));
+      setStoryForm({ name: '', country: '', program: '', testimonial: '' });
+      setShowStoryForm(false);
+      setStorySubmissionMessage('Thank you for sharing your story!');
+    } catch (submissionError) {
+      setStorySubmissionMessage(
+        submissionError instanceof Error ? submissionError.message : 'Unable to submit your story'
+      );
+    } finally {
+      setIsSubmittingStory(false);
+    }
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -101,11 +81,33 @@ export default function Home() {
         setLoading(true);
         setError(null);
         const [testimonialsData, eventsData] = await Promise.all([
-          getFeaturedTestimonials(),
+          getTestimonials(),
           getEvents()
         ]);
-        setTestimonials(testimonialsData);
-        setEvents(eventsData.filter((event: Event) => event.status === 'upcoming' || event.featured).slice(0, 3));
+        setTestimonials([...testimonialsData].sort(() => Math.random() - 0.5).slice(0, 3));
+        
+        // Separate recurring programs from other events
+        const weekly = eventsData.filter((event: Event) => 
+          event.recurring && (event.schedule === 'Weekly' || event.schedule === 'Daily' || event.schedule === 'Monthly' || event.schedule === 'Yearly' || event.schedule === 'Every Thursday' || event.schedule === 'Every Monday' || event.schedule === 'Every Tuesday' || event.schedule === 'Every Wednesday' || event.schedule === 'Every Friday' || event.schedule === 'Every Saturday' || event.schedule === 'Every Sunday')
+        );
+        const otherEvents = eventsData.filter((event: Event) => 
+          !weekly.includes(event)
+        );
+        
+        setWeeklyPrograms(weekly);
+        
+        const now = new Date();
+        
+        const upcoming = otherEvents.filter((event: Event) => {
+          // Parse date and time in local timezone
+          const [year, month, day] = event.date.split('-').map(Number);
+          const [hours, minutes] = event.time.split(':').map(Number);
+          const eventDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+          const isUpcoming = eventDate >= now;
+          return isUpcoming;
+        });
+        
+        setEvents(upcoming.slice(0, 3));
       } catch (err) {
         console.error('Error fetching data:', err);
         setError('Failed to load data. Please try again later.');
@@ -117,7 +119,7 @@ export default function Home() {
     fetchData();
   }, []);
 
-  const displayedEvents = events.length > 0 ? events : mockUpcomingEvents;
+  const displayedEvents = events;
 
   useEffect(() => {
     if (displayedEvents.length <= 1) return;
@@ -131,26 +133,17 @@ export default function Home() {
     <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
       
       {/* ── Upcoming Event Banner ── */}
-      <section className="py-8 bg-[#F8FAFC]">
-        <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div
-            className="bg-white border border-[#E5E7EB] overflow-hidden transition-all duration-300 hover:-translate-y-1"
-            style={{
-              borderRadius: 28,
-              minHeight: 160,
-              boxShadow: '0 16px 50px rgba(15,23,42,0.08)',
-            }}
-          >
-            {loading ? (
-              <div className="flex items-center gap-6 p-7 animate-pulse" style={{ minHeight: 160 }}>
-                <div className="w-[120px] h-[120px] rounded-[20px] bg-[#E2E8F0] shrink-0" />
-                <div className="flex-1 space-y-3">
-                  <div className="h-4 bg-[#E2E8F0] rounded w-28" />
-                  <div className="h-6 bg-[#E2E8F0] rounded w-64" />
-                  <div className="h-4 bg-[#E2E8F0] rounded w-48" />
-                </div>
-              </div>
-            ) : displayedEvents.length > 0 ? (
+      {!loading && displayedEvents.length > 0 && (
+        <section className="py-8 bg-[#F8FAFC]">
+          <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8">
+            <div
+              className="bg-white border border-[#E5E7EB] overflow-hidden transition-all duration-300 hover:-translate-y-1"
+              style={{
+                borderRadius: 28,
+                minHeight: 160,
+                boxShadow: '0 16px 50px rgba(15,23,42,0.08)',
+              }}
+            >
               <div className="relative">
                 {displayedEvents.map((event, index) => (
                   <div
@@ -163,28 +156,39 @@ export default function Home() {
 
                       {/* Col 1 — Thumbnail */}
                       <div className="shrink-0 hidden md:block">
-                        <img
-                          src={event.image}
-                          alt={event.title}
-                          className="object-cover hover:scale-105 transition-transform duration-300"
-                          style={{ width: 120, height: 120, borderRadius: 20, boxShadow: '0 4px 16px rgba(0,0,0,0.10)' }}
-                        />
+                        {event.image ? (
+                          <img
+                            src={event.image}
+                            alt={event.title}
+                            className="object-cover hover:scale-105 transition-transform duration-300"
+                            style={{ width: 120, height: 120, borderRadius: 20, boxShadow: '0 4px 16px rgba(0,0,0,0.10)' }}
+                          />
+                        ) : (
+                          <div
+                            className="flex items-center justify-center bg-gradient-to-br from-blue-100 to-indigo-100 hover:scale-105 transition-transform duration-300"
+                            style={{ width: 120, height: 120, borderRadius: 20, boxShadow: '0 4px 16px rgba(0,0,0,0.10)' }}
+                          >
+                            <Calendar className="w-8 h-8 text-blue-300" />
+                          </div>
+                        )}
                       </div>
 
-                      {/* Col 2 — Badge + Title + Meta */}
+                      {/* Col 2 — Title + Meta */}
                       <div className="flex-1 min-w-0">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide text-white mb-3"
-                          style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', boxShadow: '0 2px 8px rgba(37,99,235,0.25)' }}>
-                          <Calendar className="w-3.5 h-3.5" />
-                          Upcoming Event
-                        </div>
                         <h3 className="text-[22px] lg:text-[28px] font-extrabold text-[#0F172A] leading-tight mb-3">
                           {event.title}
                         </h3>
                         <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-[#64748B]">
                           <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-[#2563EB]" />{new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                           <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-[#2563EB]" />{event.time}</span>
-                          <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-[#2563EB]" />{event.location}</span>
+                          {event.locationType === 'online' ? (
+                            <a href={event.onlineLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-[#2563EB] hover:underline">
+                              <MapPin className="w-3.5 h-3.5" />
+                              Online Event
+                            </a>
+                          ) : (
+                            <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-[#2563EB]" />{event.location}</span>
+                          )}
                         </div>
                       </div>
 
@@ -239,14 +243,10 @@ export default function Home() {
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="flex items-center justify-center text-sm text-[#64748B]" style={{ minHeight: 160 }}>
-                No upcoming events at this time.
-              </div>
-            )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── Hero Section ── */}
       <section className="relative bg-[#F8FAFC] pt-10 pb-20 overflow-hidden">
@@ -264,12 +264,6 @@ export default function Home() {
 
             {/* ── Left — 45% ── */}
             <div className="flex-[0_0_auto] w-full lg:w-[45%] animate-fade-left">
-              {/* Badge */}
-              <div className="inline-flex items-center gap-2 text-[#2563EB] font-semibold text-sm mb-7">
-                <HomeIcon className="w-4 h-4" />
-                Welcome Home
-              </div>
-
               <h1 className="font-extrabold leading-[1.08] tracking-tight mb-6"
                 style={{ fontSize: 'clamp(40px, 5vw, 72px)' }}>
                 <span className="text-[#0F172A]">International Students,</span>
@@ -349,11 +343,6 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center mb-20 lg:mb-28">
             {/* Left - Text */}
             <ScrollReveal direction="left">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-1 w-12 bg-primary-600 rounded-full"></div>
-                <span className="text-primary-600 font-semibold text-sm tracking-wide uppercase">About ISCF</span>
-              </div>
-              
               <h2 className="text-section-mobile lg:text-section font-bold text-[#0F172A] mb-6">
                 We Are So Glad You Are Here!
               </h2>
@@ -433,7 +422,6 @@ export default function Home() {
           <ScrollReveal>
             <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between mb-12 lg:mb-16">
               <div>
-                <span className="text-primary-600 font-semibold text-sm tracking-wide uppercase mb-4 block">Student Stories</span>
                 <h2 className="text-section-mobile lg:text-section font-bold text-[#0F172A]">
                   What Students Say
                 </h2>
@@ -496,26 +484,14 @@ export default function Home() {
                         {/* Top colored border */}
                         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-primary" />
                         
-                        <div className="flex items-start mb-6">
-                          <div className="relative">
-                            <img
-                              src={testimonial.image}
-                              alt={testimonial.name}
-                              className="w-16 h-16 rounded-full object-cover border-4 border-white shadow-soft"
-                            />
-                            <span className="absolute -bottom-1 -right-1 text-2xl bg-white rounded-full w-7 h-7 flex items-center justify-center shadow-soft">
-                              {getCountryFlag(testimonial.country)}
-                            </span>
-                          </div>
-                          <div className="ml-4 flex-1">
-                            <h3 className="text-lg font-bold text-[#0F172A]">{testimonial.name}</h3>
-                            <p className="text-sm text-[#64748B]">{testimonial.program}</p>
-                            <p className="text-sm text-primary-600 font-medium">Old Dominion University</p>
-                            <div className="flex mt-1.5">
-                              {[...Array(5)].map((_, i) => (
-                                <Star key={i} className="w-4 h-4 fill-current text-yellow-400" />
-                              ))}
-                            </div>
+                        <div className="mb-6">
+                          <h3 className="text-lg font-bold text-[#0F172A]">{testimonial.name}</h3>
+                          <p className="text-sm text-[#64748B]">{testimonial.program}</p>
+                          <p className="text-sm text-primary-600 font-medium">Old Dominion University</p>
+                          <div className="flex mt-1.5">
+                            {[...Array(5)].map((_, i) => (
+                              <Star key={i} className="w-4 h-4 fill-current text-yellow-400" />
+                            ))}
                           </div>
                         </div>
                         
@@ -589,13 +565,88 @@ export default function Home() {
               <p className="text-white/90 text-lg mb-8 max-w-2xl mx-auto relative z-10">
                 We'd love to hear how ISCF has impacted your life.
               </p>
-              <Button variant="secondary" size="hero" showArrow href="/contact" className="bg-white text-primary-600 hover:bg-secondary-50 relative z-10">
-                Share Your Story
-              </Button>
+              {!showStoryForm ? (
+                <>
+                  {storySubmissionMessage && (
+                    <p className="relative z-10 mb-5 text-lg font-semibold text-white">{storySubmissionMessage}</p>
+                  )}
+                  <button
+                  type="button"
+                  onClick={() => {
+                    setShowStoryForm(true);
+                    setStorySubmissionMessage(null);
+                  }}
+                  className="bg-white text-primary-600 hover:bg-secondary-50 relative z-10 inline-flex items-center justify-center rounded-2xl px-8 py-4 font-bold text-lg transition-colors"
+                >
+                  Share Your Story
+                  </button>
+                </>
+              ) : (
+                <form onSubmit={handleStorySubmit} className="relative z-10 mx-auto max-w-2xl space-y-4 text-left">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <input
+                      type="text"
+                      name="name"
+                      value={storyForm.name}
+                      onChange={handleStoryInputChange}
+                      required
+                      placeholder="Your name"
+                      className="w-full rounded-xl border border-white/40 bg-white px-4 py-3 text-[#0F172A] placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-white"
+                    />
+                    <input
+                      type="text"
+                      name="country"
+                      value={storyForm.country}
+                      onChange={handleStoryInputChange}
+                      required
+                      placeholder="Your country"
+                      className="w-full rounded-xl border border-white/40 bg-white px-4 py-3 text-[#0F172A] placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-white"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    name="program"
+                    value={storyForm.program}
+                    onChange={handleStoryInputChange}
+                    required
+                    placeholder="Your program or area of study"
+                    className="w-full rounded-xl border border-white/40 bg-white px-4 py-3 text-[#0F172A] placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-white"
+                  />
+                  <textarea
+                    name="testimonial"
+                    value={storyForm.testimonial}
+                    onChange={handleStoryInputChange}
+                    required
+                    rows={6}
+                    placeholder="Tell us how ISCF has impacted your life"
+                    className="w-full resize-y rounded-xl border border-white/40 bg-white px-4 py-3 text-[#0F172A] placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-white"
+                  />
+                  {storySubmissionMessage && (
+                    <p className="text-center font-medium text-white">{storySubmissionMessage}</p>
+                  )}
+                  <div className="flex flex-col justify-center gap-3 sm:flex-row">
+                    <button
+                      type="submit"
+                      disabled={isSubmittingStory}
+                      className="rounded-xl bg-white px-6 py-3 font-bold text-primary-600 transition-colors hover:bg-secondary-50 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {isSubmittingStory ? 'Submitting...' : 'Submit Your Story'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowStoryForm(false)}
+                      className="rounded-xl border border-white px-6 py-3 font-bold text-white transition-colors hover:bg-white/10"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </ScrollReveal>
         </div>
       </section>
+
 
     </div>
   );

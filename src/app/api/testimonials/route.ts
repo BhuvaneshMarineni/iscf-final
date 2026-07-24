@@ -21,25 +21,44 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const newTestimonial = await request.json();
+    const submission = await request.json();
+    const name = typeof submission.name === 'string' ? submission.name.trim() : '';
+    const country = typeof submission.country === 'string' ? submission.country.trim() : '';
+    const program = typeof submission.program === 'string' ? submission.program.trim() : '';
+    const testimonial = typeof submission.testimonial === 'string' ? submission.testimonial.trim() : '';
+
+    if (!name || !country || !program || !testimonial) {
+      return NextResponse.json(
+        { error: 'Name, country, program, and story are required' },
+        { status: 400 }
+      );
+    }
     
-    // Read current testimonials
+    // Read current pending testimonials
     const jsonDirectory = path.join(process.cwd(), 'src/data');
-    const fileContents = await fs.readFile(jsonDirectory + '/testimonials.json', 'utf8');
-    const testimonialsData = JSON.parse(fileContents);
+    const fileContents = await fs.readFile(jsonDirectory + '/pending-testimonials.json', 'utf8');
+    const pendingData = JSON.parse(fileContents);
     
     // Add new testimonial with ID
     const testimonialWithId = {
-      ...newTestimonial,
-      id: Math.max(...testimonialsData.map((t: any) => t.id), 0) + 1,
+      id: Math.max(...pendingData.map((t: any) => t.id), 0) + 1,
+      name,
+      country,
+      program,
+      year: new Date().getFullYear().toString(),
+      image: '',
+      testimonial,
+      status: 'Current Student',
+      currentPosition: 'Currently at ODU',
+      featured: true,
     };
     
-    testimonialsData.push(testimonialWithId);
+    pendingData.push(testimonialWithId);
     
-    // Write back to file
+    // Write back to pending file
     await fs.writeFile(
-      jsonDirectory + '/testimonials.json', 
-      JSON.stringify(testimonialsData, null, 2)
+      jsonDirectory + '/pending-testimonials.json', 
+      JSON.stringify(pendingData, null, 2)
     );
     
     return NextResponse.json(testimonialWithId, { status: 201 });

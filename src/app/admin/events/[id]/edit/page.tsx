@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Calendar, Clock, MapPin, Users, Save, X } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 
-export default function AddEvent() {
+export default function EditEvent() {
+  const params = useParams();
+  const router = useRouter();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -25,11 +27,11 @@ export default function AddEvent() {
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
   const [modalType, setModalType] = useState<'success' | 'error'>('success');
-  const router = useRouter();
 
   const categories = [
     'Bible Studies',
@@ -41,6 +43,40 @@ export default function AddEvent() {
     'Friendships',
     'Celebrations'
   ];
+
+  useEffect(() => {
+    const fetchEvent = async () => {
+      try {
+        const response = await fetch(`/api/events/${params.id}`);
+        if (response.ok) {
+          const eventData = await response.json();
+          setFormData({
+            title: eventData.title || '',
+            description: eventData.description || '',
+            date: eventData.date || '',
+            time: eventData.time || '',
+            endTime: eventData.endTime || '',
+            locationType: eventData.locationType || 'location',
+            location: eventData.location || '',
+            onlineLink: eventData.onlineLink || '',
+            category: eventData.category || 'Bible Studies',
+            maxAttendees: eventData.maxAttendees?.toString() || '',
+            registrationRequired: eventData.registrationRequired || false,
+            featured: eventData.featured || false,
+            recurring: eventData.recurring || false,
+            schedule: eventData.schedule || 'One-time event',
+            image: eventData.image || ''
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching event:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchEvent();
+  }, [params.id]);
 
   const handleImageUpload = async (file: File) => {
     setIsUploading(true);
@@ -73,7 +109,7 @@ export default function AddEvent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setIsSaving(true);
     
     try {
       let imageUrl = formData.image;
@@ -95,7 +131,7 @@ export default function AddEvent() {
           setModalMessage('Failed to upload image');
           setModalType('error');
           setShowModal(true);
-          setIsLoading(false);
+          setIsSaving(false);
           return;
         }
       }
@@ -122,8 +158,8 @@ export default function AddEvent() {
         status
       };
 
-      const response = await fetch('/api/events', {
-        method: 'POST',
+      const response = await fetch(`/api/events/${params.id}`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -131,27 +167,26 @@ export default function AddEvent() {
       });
       
       if (response.ok) {
-        setModalMessage('Event created successfully!');
+        setModalMessage('Event updated successfully!');
         setModalType('success');
         setShowModal(true);
-        // Trigger data refresh on events page
         localStorage.setItem('admin-data-updated', Date.now().toString());
         window.dispatchEvent(new CustomEvent('admin-data-updated'));
         setTimeout(() => {
           router.push('/admin');
         }, 1500);
       } else {
-        setModalMessage('Failed to create event');
+        setModalMessage('Failed to update event');
         setModalType('error');
         setShowModal(true);
       }
     } catch (error) {
-      console.error('Error creating event:', error);
-      setModalMessage('Error creating event');
+      console.error('Error updating event:', error);
+      setModalMessage('Error updating event');
       setModalType('error');
       setShowModal(true);
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -162,6 +197,14 @@ export default function AddEvent() {
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
     });
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -177,8 +220,8 @@ export default function AddEvent() {
                 <ArrowLeft className="w-6 h-6" />
               </Link>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Add New Event</h1>
-                <p className="text-sm text-gray-600">Create a new event for the ISCF community</p>
+                <h1 className="text-2xl font-bold text-gray-900">Edit Event</h1>
+                <p className="text-sm text-gray-600">Update event details</p>
               </div>
             </div>
           </div>
@@ -250,6 +293,23 @@ export default function AddEvent() {
                       <div>
                         <p className="text-sm text-gray-700">{imageFile.name}</p>
                         <p className="text-xs text-gray-500">{(imageFile.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {formData.image && !imageFile && !isUploading && (
+                  <div className="mt-2">
+                    <div className="flex items-center gap-4">
+                      <img src={formData.image} alt="Preview" className="h-32 w-auto rounded border border-gray-300" />
+                      <div>
+                        <p className="text-sm text-gray-700">Current image</p>
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, image: '' }))}
+                          className="px-3 py-1 bg-red-50 text-red-600 rounded text-sm hover:bg-red-100 transition-colors mt-1"
+                        >
+                          Remove Image
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -502,10 +562,10 @@ export default function AddEvent() {
             </Link>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isSaving}
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? (
+              {isSaving ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   Saving...
@@ -513,7 +573,7 @@ export default function AddEvent() {
               ) : (
                 <>
                   <Save className="w-4 h-4 mr-2" />
-                  Create Event
+                  Update Event
                 </>
               )}
             </button>

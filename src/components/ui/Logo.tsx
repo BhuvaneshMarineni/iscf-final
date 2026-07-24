@@ -25,7 +25,7 @@ const Logo = ({ className = '', showText = true, variant = 'default', scrolled =
     <div className={`flex items-center space-x-3 group ${className}`}>
       <div
         className="relative shrink-0 transition-all duration-300 ease-out"
-        style={{ width: scrolled ? 34 : 48, height: scrolled ? 34 : 48 }}
+        style={{ width: scrolled ? 36 : 48, height: scrolled ? 36 : 48 }}
       >
         <Image
           src="/images/ISCF.png"

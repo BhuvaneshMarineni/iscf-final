@@ -1,6 +1,51 @@
+'use client';
+
+import { useState } from 'react';
 import { Mail, Phone, MapPin, Clock, Send, MessageCircle, Calendar, Heart } from 'lucide-react';
 
 export default function Contact() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setSubmissionMessage(null);
+    setSubmissionError(null);
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: formData.get('firstName'),
+          lastName: formData.get('lastName'),
+          email: formData.get('email'),
+          phone: formData.get('phone'),
+          subject: formData.get('subject'),
+          message: formData.get('message'),
+          newsletter: formData.get('newsletter') === 'on',
+        }),
+      });
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData.error || 'Unable to send your message');
+      }
+
+      form.reset();
+      setSubmissionMessage('Thank you! Your message has been sent. We will get back to you soon.');
+    } catch (error) {
+      setSubmissionError(error instanceof Error ? error.message : 'Unable to send your message');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen">
       {/* Contact Information */}
@@ -31,7 +76,7 @@ export default function Contact() {
                   href="mailto:info@iscfodu.org" 
                   className="text-teal-600 hover:text-teal-700 font-medium text-lg"
                 >
-                  info@iscfodu.org
+                  Gopal@iscf.global
                 </a>
               </div>
 
@@ -43,10 +88,9 @@ export default function Contact() {
                   href="tel:+1-757-XXX-XXXX" 
                   className="text-blue-600 hover:text-blue-700 font-medium text-lg"
                 >
-                  (757) XXX-XXXX
+                  (757) 270-2823
                 </a>
               </div>
-
               <div className="bg-white rounded-xl shadow-lg p-8 text-center border-t-4 border-green-500">
                 <MapPin className="w-12 h-12 mx-auto mb-4 text-green-600" />
                 <h3 className="text-xl font-semibold text-gray-900 mb-3">Visit Us</h3>
@@ -72,7 +116,7 @@ export default function Contact() {
             </div>
 
             <div className="bg-white rounded-xl shadow-lg border border-gray-200">
-              <form className="p-8 space-y-6">
+              <form onSubmit={handleSubmit} className="p-8 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
@@ -176,12 +220,19 @@ export default function Contact() {
                   </label>
                 </div>
 
+                {submissionMessage && (
+                  <p className="text-center font-medium text-green-600">{submissionMessage}</p>
+                )}
+                {submissionError && (
+                  <p className="text-center font-medium text-red-600">{submissionError}</p>
+                )}
                 <button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 text-white py-4 px-6 rounded-lg hover:from-teal-700 hover:to-cyan-700 transition-all duration-200 font-semibold text-lg shadow-lg flex items-center justify-center"
+                  disabled={isSubmitting}
+                  className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 text-white py-4 px-6 rounded-lg hover:from-teal-700 hover:to-cyan-700 transition-all duration-200 font-semibold text-lg shadow-lg flex items-center justify-center disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <Send className="w-5 h-5 mr-2" />
-                  Send Message
+                  {isSubmitting ? 'Sending...' : 'Send Message'}
                 </button>
               </form>
             </div>
